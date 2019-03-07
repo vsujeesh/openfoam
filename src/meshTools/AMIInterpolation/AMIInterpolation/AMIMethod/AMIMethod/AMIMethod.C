@@ -81,14 +81,18 @@ bool Foam::AMIMethod<SourcePatch, TargetPatch>::initialise
     label& tgtFacei
 )
 {
+//DebugVar("Initialise - 1");
     checkPatches();
-
+//DebugVar("Initialise - 2");
+//DebugVar(srcPatch_.size());
+//DebugVar(tgtPatch_.size());
     // set initial sizes for weights and addressing - must be done even if
     // returns false below
     srcAddress.setSize(srcPatch_.size());
     srcWeights.setSize(srcPatch_.size());
     tgtAddress.setSize(tgtPatch_.size());
     tgtWeights.setSize(tgtPatch_.size());
+//DebugVar("Initialise - 3");
 
     // check that patch sizes are valid
     if (!srcPatch_.size())
@@ -102,10 +106,12 @@ bool Foam::AMIMethod<SourcePatch, TargetPatch>::initialise
 
         return false;
     }
+//DebugVar("Initialise - 4");
 
     // reset the octree
     resetTree();
 
+//DebugVar("Initialise - 5");
     // find initial face match using brute force/octree search
     if ((srcFacei == -1) || (tgtFacei == -1))
     {
@@ -122,6 +128,7 @@ bool Foam::AMIMethod<SourcePatch, TargetPatch>::initialise
                 break;
             }
         }
+//DebugVar("Initialise - 6");
 
         if (!foundFace)
         {
@@ -141,6 +148,7 @@ bool Foam::AMIMethod<SourcePatch, TargetPatch>::initialise
         Pout<< "AMI: initial target face = " << tgtFacei << endl;
     }
 
+//DebugVar("Initialise - 7");
     return true;
 }
 

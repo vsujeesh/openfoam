@@ -36,6 +36,7 @@ void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::calcAddressing
 (
     List<DynamicList<label>>& srcAddr,
     List<DynamicList<scalar>>& srcWght,
+    List<DynamicList<point>>& srcCtr,
     List<DynamicList<label>>& tgtAddr,
     List<DynamicList<scalar>>& tgtWght,
     label srcFacei,
@@ -79,6 +80,7 @@ void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::calcAddressing
 
             srcAddr,
             srcWght,
+            srcCtr,
             tgtAddr,
             tgtWght
         );
@@ -122,9 +124,10 @@ bool Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::processSourceFace
     // list of faces currently visited for srcFacei to avoid multiple hits
     DynamicList<label>& visitedFaces,
 
-    // temporary storage for addressing and weights
+    // temporary storage for addressing, weights and centroid
     List<DynamicList<label>>& srcAddr,
     List<DynamicList<scalar>>& srcWght,
+    List<DynamicList<point>>& srcCtr,
     List<DynamicList<label>>& tgtAddr,
     List<DynamicList<scalar>>& tgtWght
 )
@@ -153,21 +156,30 @@ bool Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::processSourceFace
 
     label maxNeighbourFaces = nbrFaces.size();
 
+
     do
     {
         // process new target face
         label tgtFacei = nbrFaces.remove();
         visitedFaces.append(tgtFacei);
-        scalar area = interArea(srcFacei, tgtFacei);
+
+        scalar interArea = 0;
+        vector interCentroid(Zero);
+        calcInterArea(srcFacei, tgtFacei, interArea, interCentroid);
 
         // store when intersection fractional area > tolerance
-        if (area/this->srcMagSf_[srcFacei] > faceAreaIntersect::tolerance())
+        if
+        (
+            interArea/this->srcMagSf_[srcFacei]
+          > faceAreaIntersect::tolerance()
+        )
         {
             srcAddr[srcFacei].append(tgtFacei);
-            srcWght[srcFacei].append(area);
+            srcWght[srcFacei].append(interArea);
+            srcCtr[srcFacei].append(interCentroid);
 
             tgtAddr[tgtFacei].append(srcFacei);
-            tgtWght[tgtFacei].append(area);
+            tgtWght[tgtFacei].append(interArea);
 
             this->appendNbrFaces
             (
@@ -307,15 +319,15 @@ void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::setNextFaces
 
 
 template<class SourcePatch, class TargetPatch>
-Foam::scalar Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::interArea
+void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::calcInterArea
 (
     const label srcFacei,
-    const label tgtFacei
+    const label tgtFacei,
+    scalar& area,
+    vector& centroid
 ) const
 {
     addProfiling(ami, "faceAreaWeightAMI::interArea");
-
-    scalar area = 0;
 
     const pointField& srcPoints = this->srcPatch_.points();
     const pointField& tgtPoints = this->tgtPatch_.points();
@@ -331,7 +343,7 @@ Foam::scalar Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::interArea
      || (this->tgtMagSf_[tgtFacei] < ROOTVSMALL)
     )
     {
-        return area;
+        return;
     }
 
     // create intersection object
@@ -359,7 +371,7 @@ Foam::scalar Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::interArea
 
     if (magN > ROOTVSMALL)
     {
-        area = inter.calc(src, tgt, n/magN);
+        inter.calc(src, tgt, n/magN, area, centroid);
     }
     else
     {
@@ -376,8 +388,6 @@ Foam::scalar Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::interArea
     {
         this->writeIntersectionOBJ(area, src, tgt, srcPoints, tgtPoints);
     }
-
-    return area;
 }
 
 
@@ -452,6 +462,7 @@ restartUncoveredSourceFace
 (
     List<DynamicList<label>>& srcAddr,
     List<DynamicList<scalar>>& srcWght,
+    List<DynamicList<point>>& srcCtr,
     List<DynamicList<label>>& tgtAddr,
     List<DynamicList<scalar>>& tgtWght
 )
@@ -535,6 +546,7 @@ restartUncoveredSourceFace
 
                     srcAddr,
                     srcWght,
+                    srcCtr,
                     tgtAddr,
                     tgtWght
                 );
@@ -570,16 +582,11 @@ Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::faceAreaWeightAMI
     srcTris_(),
     tgtTris_()
 {
+//DebugVar("faceAreaWeightAMI - START");
     this->triangulatePatch(srcPatch, srcTris_, this->srcMagSf_);
     this->triangulatePatch(tgtPatch, tgtTris_, this->tgtMagSf_);
+//DebugVar("faceAreaWeightAMI - END");
 }
-
-
-// * * * * * * * * * * * * * * * * Destructor * * * * * * * * * * * * * * * //
-
-template<class SourcePatch, class TargetPatch>
-Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::~faceAreaWeightAMI()
-{}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
@@ -589,12 +596,14 @@ void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::calculate
 (
     labelListList& srcAddress,
     scalarListList& srcWeights,
+    pointListList& srcCentroids,
     labelListList& tgtAddress,
     scalarListList& tgtWeights,
     label srcFacei,
     label tgtFacei
 )
 {
+//DebugVar("faceAreaWeightAMI - calculate - 1");
     addProfiling(ami, "faceAreaWeightAMI::calculate");
 
     bool ok =
@@ -608,6 +617,9 @@ void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::calculate
             tgtFacei
         );
 
+    srcCentroids.setSize(srcAddress.size());
+
+
     if (!ok)
     {
         return;
@@ -616,6 +628,7 @@ void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::calculate
     // temporary storage for addressing and weights
     List<DynamicList<label>> srcAddr(this->srcPatch_.size());
     List<DynamicList<scalar>> srcWght(srcAddr.size());
+    List<DynamicList<point>> srcCtr(srcAddr.size());
     List<DynamicList<label>> tgtAddr(this->tgtPatch_.size());
     List<DynamicList<scalar>> tgtWght(tgtAddr.size());
 
@@ -623,6 +636,7 @@ void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::calculate
     (
         srcAddr,
         srcWght,
+        srcCtr,
         tgtAddr,
         tgtWght,
         srcFacei,
@@ -644,17 +658,18 @@ void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::calculate
         (
             srcAddr,
             srcWght,
+            srcCtr,
             tgtAddr,
             tgtWght
         );
     }
 
-
-    // transfer data to persistent storage
+    // Transfer data to persistent storage
     forAll(srcAddr, i)
     {
         srcAddress[i].transfer(srcAddr[i]);
         srcWeights[i].transfer(srcWght[i]);
+        srcCentroids[i].transfer(srcCtr[i]);
     }
     forAll(tgtAddr, i)
     {

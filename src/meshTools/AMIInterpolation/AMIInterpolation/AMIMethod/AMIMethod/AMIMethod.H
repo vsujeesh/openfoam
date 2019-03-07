@@ -45,6 +45,7 @@ SourceFiles
 #include "treeDataPrimitivePatch.H"
 #include "treeBoundBoxList.H"
 #include "runTimeSelectionTables.H"
+#include "pointList.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -251,6 +252,7 @@ public:
             (
                 labelListList& srcAddress,
                 scalarListList& srcWeights,
+                pointListList& srcCentroids,
                 labelListList& tgtAddress,
                 scalarListList& tgtWeights,
                 label srcFacei = -1,

@@ -27,6 +27,18 @@ License
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+inline void Foam::cyclicAMIPolyPatch::setUpdated(const bool flag) const
+{
+    updated_ = flag;
+}
+
+
+inline bool Foam::cyclicAMIPolyPatch::updated() const
+{
+    return updated_;
+}
+
+
 inline const Foam::word& Foam::cyclicAMIPolyPatch::neighbPatchName() const
 {
     if (nbrPatchName_.empty())

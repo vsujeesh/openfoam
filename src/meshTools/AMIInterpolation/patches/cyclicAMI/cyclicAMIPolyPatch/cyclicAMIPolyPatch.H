@@ -74,6 +74,9 @@ protected:
 
     // Protected data
 
+        //- Flag to indicate that AMI has been updated
+        mutable bool updated_;
+
         //- Name of other half
         mutable word nbrPatchName_;
 
@@ -129,9 +132,51 @@ protected:
         const dictionary surfDict_;
 
 
+        // Change of topology as AMI is updated
+
+            //- Flag to indicate that new AMI faces will created
+            //  Set by the call to changeTopology
+            mutable bool createAMIFaces_;
+
+            mutable bool updatingAMI_;
+
+            labelListList srcFaceIDs_;
+
+            labelListList tgtFaceIDs_;
+
+            //- Temporary storage for AMI face areas
+            vectorField faceAreas0_;
+
+            //- Temporary storage for AMI face centres
+            vectorField faceCentres0_;
+
+            //- Temporary storage for AMI neighbour face areas
+            vectorField nbrFaceAreas0_;
+
+            //- Temporary storage for AMI neighbour face centres
+            vectorField nbrFaceCentres0_;
+
+
     // Protected Member Functions
 
-        //- Reset the AMI interpolator
+        // Topology change
+
+            virtual bool removeAMIFaces(polyTopoChange& topoChange);
+
+            virtual bool addAMIFaces(polyTopoChange& topoChange);
+
+            virtual void setAMIFaces();
+
+
+        //- Reset the AMI interpolator, supply patch points
+        virtual void resetAMI
+        (
+            const UList<point>& points,
+            const AMIPatchToPatchInterpolation::interpolationMethod& AMIMethod =
+                AMIPatchToPatchInterpolation::imFaceAreaWeight
+        ) const;
+
+        //-  Reset the AMI interpolator, use current patch points
         virtual void resetAMI
         (
             const AMIPatchToPatchInterpolation::interpolationMethod& AMIMethod =
@@ -140,6 +185,8 @@ protected:
 
         //- Recalculate the transformation tensors
         virtual void calcTransforms();
+
+virtual void restoreScaledGeometry();
 
         //- Initialise the calculation of the patch geometry
         virtual void initGeometry(PstreamBuffers&);
@@ -274,15 +321,35 @@ public:
 
 
     //- Destructor
-    virtual ~cyclicAMIPolyPatch();
+    virtual ~cyclicAMIPolyPatch() = default;
 
 
     // Member Functions
 
         // Access
 
+             //- Reset the updated flag
+            inline void setUpdated(bool flag) const;
+
+            //- Return access to the updated flag
+            inline bool updated() const;
+
+            bool updatingAMI() const
+            {
+                return updatingAMI_;
+            }
+
+void clearAMI() const
+{
+    AMIPtr_.clear();
+}
+
+virtual bool changeTopology() const;
+
+virtual bool setTopology(polyTopoChange& topoChange);
+
             //- Is patch 'coupled'. Note that on AMI the geometry is not
-            //  coupled but the fields are!
+            //- coupled but the fields are!
             virtual bool coupled() const
             {
                 return false;
@@ -388,7 +455,7 @@ public:
         );
 
         //- Initialize ordering for primitivePatch. Does not
-        //  refer to *this (except for name() and type() etc.)
+        //- refer to *this (except for name() and type() etc.)
         virtual void initOrder
         (
             PstreamBuffers&,
@@ -409,7 +476,7 @@ public:
         ) const;
 
         //- Return face index on neighbour patch which shares point p
-        //  following trajectory vector n
+        //- following trajectory vector n
         label pointFace
         (
             const label facei,

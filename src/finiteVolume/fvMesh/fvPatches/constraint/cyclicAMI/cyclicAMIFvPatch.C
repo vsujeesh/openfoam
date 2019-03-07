@@ -29,6 +29,7 @@ License
 #include "addToRunTimeSelectionTable.H"
 #include "fvMesh.H"
 #include "transform.H"
+#include "surfaceFields.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -98,6 +99,7 @@ void Foam::cyclicAMIFvPatch::makeWeights(scalarField& w) const
 
 Foam::tmp<Foam::vectorField> Foam::cyclicAMIFvPatch::delta() const
 {
+//DebugVar("*** delta ***");
     const cyclicAMIFvPatch& nbrPatch = neighbFvPatch();
 
     if (coupled())
@@ -171,6 +173,15 @@ Foam::tmp<Foam::labelField> Foam::cyclicAMIFvPatch::internalFieldTransfer
 ) const
 {
     return neighbFvPatch().patchInternalField(iF);
+}
+
+
+void Foam::cyclicAMIFvPatch::movePoints()
+{
+//    DebugVar("movePoints");
+    const_cast<vectorField&>(Sf()) = patch().faceAreas();
+    const_cast<vectorField&>(Cf()) = patch().faceCentres();
+    const_cast<scalarField&>(magSf()) = mag(Sf());
 }
 
 

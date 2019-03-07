@@ -91,6 +91,8 @@ class fvMesh
     public fvSolution,
     public data
 {
+protected:
+
     // Private data
 
         //- Boundary mesh
@@ -442,6 +444,8 @@ public:
             //- Remove boundary patches. Warning: fvPatchFields hold ref to
             //  these fvPatches.
             void removeFvBoundary();
+
+void resetMeshPhi(const pointField& p, const pointField& p0);
 
             //- Return cell face motion fluxes
             surfaceScalarField& setPhi();

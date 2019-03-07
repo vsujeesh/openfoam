@@ -34,6 +34,12 @@ License
 #include "addToRunTimeSelectionTable.H"
 #include "faceAreaIntersect.H"
 #include "ops.H"
+#include "polyTopoChange.H"
+#include "OBJstream.H"
+#include "vectorList.H"
+
+#define DEBUG(msg){Pout<< "[" << __FILE__ << ":" << __LINE__ << "] " << name() << ": " << msg << endl;}
+#define DEBUG2(msg){Pout<< "[" << __FILE__ << ":" << __LINE__ << "] " << name() << ": " << #msg << "=" << msg << endl;}
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -288,84 +294,635 @@ void Foam::cyclicAMIPolyPatch::calcTransforms
 }
 
 
+void Foam::cyclicAMIPolyPatch::restoreScaledGeometry()
+{
+DebugInFunction << endl;
+
+    if (boundaryMesh().mesh().hasCellVolumes())
+    {
+        WarningInFunction
+            << "Mesh already has volumes set!"
+            << endl;
+    }
+
+    const polyPatch& nbr = neighbPatch();
+    vectorField::subField srcFaceAreas = faceAreas();
+    vectorField::subField tgtFaceAreas = nbr.faceAreas();
+    vectorField::subField srcFaceCentres = faceCentres();
+    vectorField::subField tgtFaceCentres = nbr.faceCentres();
+
+    if (debug)
+    {
+        Info<< "before: sum(mag(srcFaceAreas)):" << gSum(mag(srcFaceAreas)) << endl;
+        Info<< "before: sum(mag(faceAreas0)):" << gSum(mag(faceAreas0_)) << endl;
+        Info<< "before: sum(mag(tgtFaceAreas)):" << gSum(mag(tgtFaceAreas)) << endl;
+        Info<< "before: sum(mag(nbrFaceAreas0)):" << gSum(mag(nbrFaceAreas0_)) << endl;
+    }
+
+    srcFaceAreas = faceAreas0_;
+    srcFaceCentres = faceCentres0_;
+    faceAreas0_.clear();
+    faceCentres0_.clear();
+
+    tgtFaceAreas = nbrFaceAreas0_;
+    tgtFaceCentres = nbrFaceCentres0_;
+    nbrFaceAreas0_.clear();
+    nbrFaceCentres0_.clear();
+
+    if (debug)
+    {
+        Info<< "after: sum(mag(srcFaceAreas)):" << gSum(mag(srcFaceAreas)) << endl;
+        Info<< "after: sum(mag(faceAreas0)):" << gSum(mag(faceAreas0_)) << endl;
+        Info<< "after: sum(mag(tgtFaceAreas)):" << gSum(mag(tgtFaceAreas)) << endl;
+        Info<< "after: sum(mag(nbrFaceAreas0)):" << gSum(mag(nbrFaceAreas0_)) << endl;
+    }
+}
+
+
 // * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * * //
+
+bool Foam::cyclicAMIPolyPatch::removeAMIFaces(polyTopoChange& topoChange)
+{
+    DebugInFunction << endl;
+
+    if (!owner())
+    {
+        return false;
+    }
+
+    bool changeRequired = false;
+
+    // Remove any faces that we inserted...
+
+    const cyclicAMIPolyPatch& nbr = neighbPatch();
+
+    if (srcFaceIDs_.size())
+    {
+        for (label facei = srcFaceIDs_.size(); facei < size(); ++facei)
+        {
+            changeRequired = true;
+            label meshFacei = start() + facei;
+            topoChange.removeFace(meshFacei, -1);
+        }
+    }
+    if (tgtFaceIDs_.size())
+    {
+        for (label facei = tgtFaceIDs_.size(); facei < nbr.size(); ++facei)
+        {
+            changeRequired = true;
+            label meshFacei = nbr.start() + facei;
+            topoChange.removeFace(meshFacei, -1);
+        }
+    }
+
+    srcFaceIDs_.clear();
+    tgtFaceIDs_.clear();
+
+    return changeRequired;
+}
+
+
+bool Foam::cyclicAMIPolyPatch::addAMIFaces(polyTopoChange& topoChange)
+{
+    DebugInFunction << endl;
+
+    bool changedFaces = false;
+    const cyclicAMIPolyPatch& nbr = neighbPatch();
+
+    polyMesh& mesh = const_cast<polyMesh&>(boundaryMesh().mesh());
+    const faceZoneMesh& faceZones = mesh.faceZones();
+
+    // First source face address and weight are used to manipulate the
+    // original face - all other addresses and weights are used to
+    // create additional faces
+    const labelListList& srcToTgtAddr = AMI().srcAddress();
+    const labelListList& tgtToSrcAddr = AMI().tgtAddress();
+    srcFaceIDs_.setSize(srcToTgtAddr.size());
+    tgtFaceIDs_.setSize(tgtToSrcAddr.size());
+
+    label srcFaceNewStart = 0;
+    forAll(srcToTgtAddr, srcFacei)
+    {
+        const labelList& tgtAddr = srcToTgtAddr[srcFacei];
+
+        if (tgtAddr.empty()) continue;
+
+        srcFaceIDs_[srcFacei].setSize(tgtAddr.size());
+        srcFaceIDs_[srcFacei][0] = srcFacei;
+
+        label meshFacei = start() + srcFacei;
+        for (label addri = 1; addri < tgtAddr.size(); ++addri)
+        {
+            changedFaces = true;
+
+            // Note: new faces reuse originating face points
+            // - but areas are scaled by the weights (later)
+
+            // New source face for each target face address
+            srcFaceIDs_[srcFacei][addri] = srcFaceNewStart + srcToTgtAddr.size();
+            ++srcFaceNewStart;
+            (void)topoChange.addFace
+            (
+                mesh.faces()[meshFacei],        // modified face
+                mesh.faceOwner()[meshFacei],    // owner
+                -1,                             // neighbour
+                -1,                             // master point
+                -1,                             // master edge
+                meshFacei,                      // master face
+                false,                          // face flip
+                index(),                        // patch for face
+                faceZones.whichZone(meshFacei), // zone for original face
+                false                           // face flip in zone
+            );
+        }
+    }
+
+    label tgtFaceNewStart = 0;
+    forAll(tgtToSrcAddr, tgtFacei)
+    {
+        const labelList& srcAddr = tgtToSrcAddr[tgtFacei];
+
+        if (srcAddr.empty()) continue;
+
+        tgtFaceIDs_[tgtFacei].setSize(srcAddr.size());
+        tgtFaceIDs_[tgtFacei][0] = tgtFacei;
+
+        label meshFacei = nbr.start() + tgtFacei;
+        for (label addri = 1; addri < srcAddr.size(); ++addri)
+        {
+            changedFaces = true;
+
+            // Note: new faces reuse originating face points
+            // - but areas are scaled by the weights (later)
+
+            // New target face for each source face address
+            tgtFaceIDs_[tgtFacei][addri] = tgtFaceNewStart + tgtToSrcAddr.size();
+            ++tgtFaceNewStart;
+
+            (void)topoChange.addFace
+            (
+                mesh.faces()[meshFacei],        // modified face
+                mesh.faceOwner()[meshFacei],    // owner
+                -1,                             // neighbour
+                -1,                             // master point
+                -1,                             // master edge
+                meshFacei,                      // master face
+                false,                          // face flip
+                nbr.index(),                    // patch for face
+                faceZones.whichZone(meshFacei), // zone for original face
+                false                           // face flip in zone
+            );
+        }
+    }
+
+    Info<< "New faces - " << name() << ": "
+        << returnReduce(srcFaceNewStart, sumOp<label>())
+        << " "  << nbr.name() << ": "
+        << returnReduce(tgtFaceNewStart, sumOp<label>())
+        << endl;
+
+    if (debug)
+    {
+        Pout<< "New faces - " << name() << ": " << srcFaceNewStart
+            << " "  << nbr.name() << ": " << tgtFaceNewStart << endl;
+    }
+
+    return returnReduce(changedFaces, orOp<bool>());
+}
+
 
 void Foam::cyclicAMIPolyPatch::resetAMI
 (
     const AMIPatchToPatchInterpolation::interpolationMethod& AMIMethod
 ) const
 {
-    if (owner())
+    resetAMI(boundaryMesh().mesh().points(), AMIMethod);
+}
+
+
+void Foam::cyclicAMIPolyPatch::resetAMI
+(
+    const UList<point>& points,
+    const AMIPatchToPatchInterpolation::interpolationMethod& AMIMethod
+) const
+{
+    DebugInFunction << endl;
+
+    if (!owner())
     {
-        AMIPtr_.clear();
+        return;
+    }
 
-        const polyPatch& nbr = neighbPatch();
-        pointField nbrPoints
-        (
-            neighbPatch().boundaryMesh().mesh().points(),
-            neighbPatch().meshPoints()
-        );
+    AMIPtr_.clear();
 
-        if (debug)
+    const cyclicAMIPolyPatch& nbr = neighbPatch();
+    pointField srcPoints
+    (
+        points,
+        meshPoints()
+    );
+    pointField nbrPoints
+    (
+        points,
+        neighbPatch().meshPoints()
+    );
+
+    if (debug)
+    {
+        const Time& t = boundaryMesh().mesh().time();
+        OFstream os(t.path()/name() + "_neighbourPatch-org.obj");
+        meshTools::writeOBJ(os, neighbPatch().localFaces(), nbrPoints);
+    }
+
+    label patchSize0 = size();
+    label nbrPatchSize0 = nbr.size();
+
+    if (createAMIFaces_)
+    {
+        // AMI is created based on the original patch faces (non-extended patch)
+        if (srcFaceIDs_.size())
         {
-            const Time& t = boundaryMesh().mesh().time();
-            OFstream os(t.path()/name() + "_neighbourPatch-org.obj");
-            meshTools::writeOBJ(os, neighbPatch().localFaces(), nbrPoints);
+            patchSize0 = srcFaceIDs_.size();
+        }
+        if (tgtFaceIDs_.size())
+        {
+            nbrPatchSize0 = tgtFaceIDs_.size();
+        }
+    }
+
+    // Transform neighbour patch to local system
+    transformPosition(nbrPoints);
+    primitivePatch nbrPatch0
+    (
+        SubList<face>
+        (
+            nbr.localFaces(),
+            nbrPatchSize0
+        ),
+        nbrPoints
+    );
+    primitivePatch patch0
+    (
+        SubList<face>
+        (
+            localFaces(),
+            patchSize0
+        ),
+        srcPoints
+    );
+
+
+    if (debug)
+    {
+        const Time& t = boundaryMesh().mesh().time();
+        OFstream osN(t.path()/name() + "_neighbourPatch-trans.obj");
+        meshTools::writeOBJ(osN, nbrPatch0.localFaces(), nbrPoints);
+
+        OFstream osO(t.path()/name() + "_ownerPatch.obj");
+        meshTools::writeOBJ(osO, this->localFaces(), localPoints());
+    }
+
+    // Construct/apply AMI interpolation to determine addressing and weights
+    AMIPtr_.reset
+    (
+        new AMIPatchToPatchInterpolation
+        (
+            patch0, // *this,
+            nbrPatch0,
+            surfPtr(),
+            faceAreaIntersect::tmMesh,
+            AMIRequireMatch_,
+            AMIMethod,
+            AMILowWeightCorrection_,
+            AMIReverse_
+        )
+    );
+
+    // Set the updated flag
+    updated_ = true;
+}
+
+
+void Foam::cyclicAMIPolyPatch::setAMIFaces()
+{
+    DebugInFunction << endl;
+
+    if (!owner())
+    {
+        return;
+    }
+
+    // Create new mesh faces so that there is a 1-to-1 correspondence
+    // between faces on each side of the AMI
+    const cyclicAMIPolyPatch& nbr = neighbPatch();
+
+    vectorField::subField srcFaceAreas = faceAreas();
+    vectorField::subField tgtFaceAreas = nbr.faceAreas();
+
+    // Scale the new face areas and set the centroids
+    // - For AMI, src and tgt patches should be the same
+    // - For ACMI they are likely to be different!
+    faceAreas0_ = srcFaceAreas;
+    faceCentres0_.setSize(size());
+    nbrFaceAreas0_ = tgtFaceAreas;
+    nbrFaceCentres0_.setSize(nbr.size());
+
+    const labelListList& srcToTgtAddr0 = AMIPtr_->srcAddress();
+    const labelListList& tgtToSrcAddr0 = AMIPtr_->tgtAddress();
+    const pointListList& srcCtr0 = AMIPtr_->srcCentroids();
+    const scalarListList& srcToTgtWght0 = AMIPtr_->srcWeights();
+
+    // New addressing on extended mesh
+    labelListList srcToTgtAddr1(size(), labelList());
+    labelListList tgtToSrcAddr1(nbr.size(), labelList());
+
+    // New maps (mesh has changed since AMI was computed)
+    autoPtr<mapDistribute> srcToTgtMap1;
+    autoPtr<mapDistribute> tgtToSrcMap1;
+
+    if (AMIPtr_->singlePatchProc() == -1)
+    {
+        // Parallel running
+
+        // Global index based on old patch sizes (when AMI was computed)
+        globalIndex globalSrcFaces0(srcToTgtAddr0.size());
+        globalIndex globalTgtFaces0(tgtToSrcAddr0.size());
+
+        // Global index based on new patch sizes
+        globalIndex globalSrcFaces1(size());
+        globalIndex globalTgtFaces1(nbr.size());
+
+
+        // Gather source side info
+        // =======================
+
+        // Note: using new global index for addressing, and distributed using
+        // the old AMI map
+        labelListList newTgtGlobalFaces(tgtFaceIDs_);
+        forAll(newTgtGlobalFaces, tgtFacei)
+        {
+            globalTgtFaces1.inplaceToGlobal(newTgtGlobalFaces[tgtFacei]);
+        }
+        AMIPtr_->tgtMap().distribute(newTgtGlobalFaces);
+
+        // Now have new tgt face indices for each src face
+
+        labelList globalSrcFaceIDs(identity(srcToTgtAddr0.size()));
+        globalSrcFaces0.inplaceToGlobal(globalSrcFaceIDs);
+        AMIPtr_->srcMap().distribute(globalSrcFaceIDs);
+        // globalSrcFaceIDs now has remote data for each srcFacei0 known to the
+        // tgt patch
+
+        List<List<point>> globalSrcCtrs0(srcCtr0);
+        AMIPtr_->srcMap().distribute(globalSrcCtrs0);
+
+        labelList globalTgtFaceIDs(identity(tgtToSrcAddr0.size()));
+        globalTgtFaces0.inplaceToGlobal(globalTgtFaceIDs);
+        AMIPtr_->tgtMap().distribute(globalTgtFaceIDs);
+        // globalTgtFaceIDs now has remote data for each tgtFacei0 known to the
+        // src patch
+
+        // For debug - send tgt face centres and compare against mapped src
+        // face centres
+        //List<List<point>> globalTgtCtrs0(tgtCtr0);
+        //AMIPtr_->tgtMap().distribute(globalTgtCtrs0);
+
+        labelListList globalTgtToSrcAddr(tgtToSrcAddr0);
+        forAll(tgtToSrcAddr0, tgtFacei0)
+        {
+            forAll(tgtToSrcAddr0[tgtFacei0], addri)
+            {
+                const label globalSrcFacei =
+                    globalSrcFaceIDs[tgtToSrcAddr0[tgtFacei0][addri]];
+                globalTgtToSrcAddr[tgtFacei0][addri] = globalSrcFacei;
+            }
+        }
+        AMIPtr_->tgtMap().distribute(globalTgtToSrcAddr);
+
+        labelListList globalSrcToTgtAddr(srcToTgtAddr0);
+        forAll(srcToTgtAddr0, srcFacei0)
+        {
+            forAll(srcToTgtAddr0[srcFacei0], addri)
+            {
+                const label globalTgtFacei =
+                    globalTgtFaceIDs[srcToTgtAddr0[srcFacei0][addri]];
+                globalSrcToTgtAddr[srcFacei0][addri] = globalTgtFacei;
+            }
+        }
+        AMIPtr_->srcMap().distribute(globalSrcToTgtAddr);
+
+
+        forAll(srcToTgtAddr0, srcFacei0)
+        {
+            const labelList& newSrcFaces = srcFaceIDs_[srcFacei0];
+            forAll(newSrcFaces, i)
+            {
+                label srcFacei1 = newSrcFaces[i];
+
+                // What index did srcFacei0 appear in tgtToSrc0 list?
+                // - if first index, all ok
+                // - else tgt face has been moved to according to tgtFaceIDs_
+                label tgtFacei0 = srcToTgtAddr0[srcFacei0][i];
+                label addri =
+                    globalTgtToSrcAddr[tgtFacei0].find
+                    (
+                        globalSrcFaceIDs[srcFacei0]
+                    );
+
+                if (addri == -1)
+                {
+                    FatalErrorInFunction
+                        << "Unable to find global source face "
+                        << globalSrcFaceIDs[srcFacei0]
+                        << " in globalTgtToSrcAddr[" << tgtFacei0 << "]: "
+                        << globalTgtToSrcAddr[tgtFacei0]
+                        << abort(FatalError);
+                }
+
+                label tgtFacei1 = newTgtGlobalFaces[tgtFacei0][addri];
+
+                // Sanity check to see that we've picked the correct face
+                // point tgtCtr0(globalTgtCtrs0[tgtFacei0][addri]);
+                // Pout<< "srcCtr:" << srcCtr0[srcFacei0][i]
+                //     << " tgtCtr:" << tgtCtr0 << endl;
+
+                srcToTgtAddr1[srcFacei1] = labelList(1, tgtFacei1);
+                faceAreas0_[srcFacei1] *= srcToTgtWght0[srcFacei0][i];
+                faceCentres0_[srcFacei1] = srcCtr0[srcFacei0][i];
+            }
         }
 
-        // Transform neighbour patch to local system
-        transformPosition(nbrPoints);
-        primitivePatch nbrPatch0
-        (
-            SubList<face>
+
+
+        // Gather Target side info
+        // =======================
+
+        labelListList newSrcGlobalFaces(srcFaceIDs_);
+        forAll(newSrcGlobalFaces, srcFacei)
+        {
+            globalSrcFaces1.inplaceToGlobal(newSrcGlobalFaces[srcFacei]);
+        }
+
+        AMIPtr_->srcMap().distribute(newSrcGlobalFaces);
+
+        // Now have new src face indices for each tgt face
+
+        forAll(tgtToSrcAddr0, tgtFacei0)
+        {
+            const labelList& newTgtFaces = tgtFaceIDs_[tgtFacei0];
+            forAll(newTgtFaces, i)
+            {
+                label srcFacei0 = tgtToSrcAddr0[tgtFacei0][i];
+
+                label addri =
+                    globalSrcToTgtAddr[srcFacei0].find
+                    (
+                        globalTgtFaceIDs[tgtFacei0]
+                    );
+
+                if (addri == -1)
+                {
+                    FatalErrorInFunction
+                        << "Unable to find global target face "
+                        << globalTgtFaceIDs[tgtFacei0]
+                        << " in globalSrcToTgtAddr[" << srcFacei0 << "]: "
+                        << globalSrcToTgtAddr[srcFacei0]
+                        << abort(FatalError);
+                }
+
+                label srcFacei1 = newSrcGlobalFaces[srcFacei0][addri];
+
+                // Sanity check to see that we've picked the correct face
+                point srcCtr0(globalSrcCtrs0[srcFacei0][addri]);
+                reverseTransformPosition(srcCtr0, srcFacei0);
+
+                label tgtFacei1 = newTgtFaces[i];
+                tgtToSrcAddr1[tgtFacei1] = labelList(1, srcFacei1);
+                nbrFaceCentres0_[tgtFacei1] = srcCtr0;
+            }
+        }
+
+        // Update the maps
+        {
+            List<Map<label>> cMap;
+            srcToTgtMap1.reset
             (
-                nbr.localFaces(),
-                nbr.size()
-            ),
-            nbrPoints
-        );
-
-        if (debug)
-        {
-            const Time& t = boundaryMesh().mesh().time();
-            OFstream osN(t.path()/name() + "_neighbourPatch-trans.obj");
-            meshTools::writeOBJ(osN, nbrPatch0.localFaces(), nbrPoints);
-
-            OFstream osO(t.path()/name() + "_ownerPatch.obj");
-            meshTools::writeOBJ(osO, this->localFaces(), localPoints());
+                new mapDistribute(globalSrcFaces1, tgtToSrcAddr1, cMap)
+            );
         }
-
-        // Construct/apply AMI interpolation to determine addressing and weights
-        AMIPtr_.reset
-        (
-            new AMIPatchToPatchInterpolation
+        {
+            List<Map<label>> cMap;
+            tgtToSrcMap1.reset
             (
-                *this,
-                nbrPatch0,
-                surfPtr(),
-                faceAreaIntersect::tmMesh,
-                AMIRequireMatch_,
-                AMIMethod,
-                AMILowWeightCorrection_,
-                AMIReverse_
-            )
-        );
-
-        if (debug)
-        {
-            Pout<< "cyclicAMIPolyPatch : " << name()
-                << " constructed AMI with " << nl
-                << "    " << "srcAddress:" << AMIPtr_().srcAddress().size()
-                << nl
-                << "    " << "tgAddress :" << AMIPtr_().tgtAddress().size()
-                << nl << endl;
+                new mapDistribute(globalTgtFaces1, srcToTgtAddr1, cMap)
+            );
         }
+
+        // Reset tgt patch areas using the new map
+        vectorList newSrcGlobalFaceAreas(faceAreas0_);
+        srcToTgtMap1->distribute(newSrcGlobalFaceAreas);
+        forAll(tgtFaceAreas, tgtFacei)
+        {
+            label srcFacei = tgtToSrcAddr1[tgtFacei][0];
+            nbrFaceAreas0_[tgtFacei] = -newSrcGlobalFaceAreas[srcFacei];
+        }
+    }
+    else
+    {
+        forAll(srcToTgtAddr0, srcFacei)
+        {
+            const labelList& srcFaceTgtAddr = srcToTgtAddr0[srcFacei];
+            const scalarList& srcFaceTgtWght = srcToTgtWght0[srcFacei];
+            const pointList& srcFaceTgtCtr = srcCtr0[srcFacei];
+
+            forAll(srcFaceTgtAddr, addri)
+            {
+                label newSrcFacei = srcFaceIDs_[srcFacei][addri];
+
+                // Find which slot srcFacei appears in tgt->src addressing
+                label oldTgtFacei = srcFaceTgtAddr[addri];
+                label tgtAddri = tgtToSrcAddr0[oldTgtFacei].find(srcFacei);
+                label newTgtFacei = tgtFaceIDs_[oldTgtFacei][tgtAddri];
+
+                faceAreas0_[newSrcFacei] *= srcFaceTgtWght[addri];
+                nbrFaceAreas0_[newTgtFacei] = -faceAreas0_[newSrcFacei];
+
+                point pt(srcFaceTgtCtr[addri]);
+                faceCentres0_[newSrcFacei] = pt;
+                reverseTransformPosition(pt, srcFacei);
+                nbrFaceCentres0_[newTgtFacei] = pt;
+
+                // SANITY CHECK
+                // Info<< "srcPt:" << srcFaceCentres[newSrcFacei]
+                //     << " tgtPt:" << tgtFaceCentres[newTgtFacei] << endl;
+
+                srcToTgtAddr1[newSrcFacei] = labelList(1, newTgtFacei);
+                tgtToSrcAddr1[newTgtFacei] = labelList(1, newSrcFacei);
+            }
+        }
+    }
+/*
+    if (debug)
+    {
+        const polyMesh& mesh = boundaryMesh().mesh();
+        static int LABEL=0;
+        {
+            OBJstream obj(word("srcConnections_") + Foam::name(LABEL) + ".obj");
+            for (label facei=0; facei < size(); ++facei)
+            {
+                const point& fc = srcFaceCentres[facei];
+                const face& f = mesh.faces()[start() + facei];
+                forAll(f, fpi)
+                {
+                    obj.write(linePointRef(fc, mesh.points()[f[fpi]]));
+                }
+            }
+        }
+        {
+            OBJstream obj(word("tgtConnections_") + Foam::name(LABEL) + ".obj");
+            for (label facei=0; facei < nbr.size(); ++facei)
+            {
+                const point& fc = tgtFaceCentres[facei];
+                const face& f = mesh.faces()[nbr.start() + facei];
+                forAll(f, fpi)
+                {
+                    obj.write(linePointRef(fc, mesh.points()[f[fpi]]));
+                }
+            }
+        }
+        LABEL++;
+    }
+*/
+    // Update the AMI addressing and weights to reflect the new 1-to-1
+    // correspondence
+    AMIPtr_->update
+    (
+        std::move(srcToTgtMap1),
+        std::move(tgtToSrcMap1),
+        std::move(srcToTgtAddr1),
+        scalarListList(srcToTgtAddr1.size(), scalarList(1, scalar(1))),
+        std::move(tgtToSrcAddr1),
+        scalarListList(tgtToSrcAddr1.size(), scalarList(1, scalar(1)))
+    );
+
+    AMIPtr_->setAreas(mag(faceAreas0_), mag(nbrFaceAreas0_));
+
+    if (debug)
+    {
+        Pout<< "cyclicAMIPolyPatch : " << name()
+            << " constructed AMI with " << nl
+            << "    " << "srcAddress:" << AMIPtr_().srcAddress().size()
+            << nl
+            << "    " << "tgAddress :" << AMIPtr_().tgtAddress().size()
+            << nl << endl;
     }
 }
 
 
 void Foam::cyclicAMIPolyPatch::calcTransforms()
 {
+    DebugInFunction << endl;
+
     const cyclicAMIPolyPatch& half0 = *this;
     vectorField half0Areas(half0.size());
     forAll(half0, facei)
@@ -402,10 +959,15 @@ void Foam::cyclicAMIPolyPatch::calcTransforms()
 
 void Foam::cyclicAMIPolyPatch::initGeometry(PstreamBuffers& pBufs)
 {
-    // The AMI is no longer valid. Leave it up to demand-driven calculation
-    AMIPtr_.clear();
+    DebugInFunction << endl;
+
+    if (updatingAMI_)
+    {
+        resetAMI(AMIMethod_);
+    }
 
     polyPatch::initGeometry(pBufs);
+
 
     // Early calculation of transforms so e.g. cyclicACMI can use them.
     // Note: also triggers primitiveMesh face centre. Note that cell
@@ -417,7 +979,38 @@ void Foam::cyclicAMIPolyPatch::initGeometry(PstreamBuffers& pBufs)
 
 void Foam::cyclicAMIPolyPatch::calcGeometry(PstreamBuffers& pBufs)
 {
-    // All geometry done inside initGeometry
+    DebugInFunction << endl;
+}
+
+
+bool Foam::cyclicAMIPolyPatch::changeTopology() const
+{
+    DebugInFunction << endl;
+
+    updatingAMI_ = true;
+
+    createAMIFaces_ = true;
+
+    return true;
+}
+
+
+bool Foam::cyclicAMIPolyPatch::setTopology(polyTopoChange& topoChange)
+{
+    DebugInFunction << endl;
+
+    if (createAMIFaces_ && updatingAMI_ && owner())
+    {
+        resetAMI(topoChange.points(), AMIMethod_);
+
+        removeAMIFaces(topoChange);
+
+        addAMIFaces(topoChange);
+
+        return true;
+    }
+
+    return false;
 }
 
 
@@ -427,13 +1020,32 @@ void Foam::cyclicAMIPolyPatch::initMovePoints
     const pointField& p
 )
 {
-    // The AMI is no longer valid. Leave it up to demand-driven calculation
-    AMIPtr_.clear();
-
-    polyPatch::initMovePoints(pBufs, p);
+    DebugInFunction << endl;
 
     // See below. Clear out any local geometry
     primitivePatch::movePoints(p);
+
+    // Note: processorPolyPatch::initMovePoints calls
+    // processorPolyPatch::initGeometry which will trigger calculation of
+    // patch faceCentres() and cell volumes...
+
+
+    if (owner())
+    {
+        if (createAMIFaces_)
+        {
+            // faceAreas() and faceCentres() have been reset and will be
+            // recalculated on-demand using the mesh points and no longer
+            // correspond to the scaled areas!
+            restoreScaledGeometry();
+        }
+        else
+        {
+            resetAMI(p, AMIMethod_);
+        }
+
+        // deltas need to be recalculated to use new face centres!
+    }
 
     // Early calculation of transforms. See above.
     calcTransforms();
@@ -446,30 +1058,56 @@ void Foam::cyclicAMIPolyPatch::movePoints
     const pointField& p
 )
 {
-    polyPatch::movePoints(pBufs, p);
+    DebugInFunction << endl;
 
-    // All transformation tensors already done in initMovePoints
+
+    polyPatch::movePoints(pBufs, p);
+/*
+    polyPatch::movePoints -> primitivePatch::movePoints -> primitivePatch::clearGeom:
+    deleteDemandDrivenData(localPointsPtr_);
+    deleteDemandDrivenData(faceCentresPtr_);
+    deleteDemandDrivenData(faceAreasPtr_);
+    deleteDemandDrivenData(magFaceAreasPtr_);
+    deleteDemandDrivenData(faceNormalsPtr_);
+    deleteDemandDrivenData(pointNormalsPtr_);
+*/
+    updatingAMI_ = false;
 }
 
 
 void Foam::cyclicAMIPolyPatch::initUpdateMesh(PstreamBuffers& pBufs)
 {
-    // The AMI is no longer valid. Leave it up to demand-driven calculation
-    AMIPtr_.clear();
+    DebugInFunction << endl;
 
     polyPatch::initUpdateMesh(pBufs);
+
+    if (boundaryMesh().mesh().topoChanging() && createAMIFaces_ && owner())
+    {
+        setAMIFaces();
+    }
+
+    updatingAMI_ = false;
 }
 
 
 void Foam::cyclicAMIPolyPatch::updateMesh(PstreamBuffers& pBufs)
 {
+    DebugInFunction << endl;
+
+    // Note: this clears out cellCentres(), faceCentres() and faceAreas()
     polyPatch::updateMesh(pBufs);
 }
 
 
 void Foam::cyclicAMIPolyPatch::clearGeom()
 {
-    AMIPtr_.clear();
+    DebugInFunction << endl;
+
+    if (!updatingAMI_)
+    {
+//DEBUG("*** CLEARING AMI ***");
+        AMIPtr_.clear();
+    }
     polyPatch::clearGeom();
 }
 
@@ -488,6 +1126,7 @@ Foam::cyclicAMIPolyPatch::cyclicAMIPolyPatch
 )
 :
     coupledPolyPatch(name, size, start, index, bm, patchType, transform),
+    updated_(false),
     nbrPatchName_(word::null),
     nbrPatchID_(-1),
     rotationAxis_(Zero),
@@ -501,7 +1140,15 @@ Foam::cyclicAMIPolyPatch::cyclicAMIPolyPatch
     AMIRequireMatch_(true),
     AMILowWeightCorrection_(-1.0),
     surfPtr_(nullptr),
-    surfDict_(fileName("surface"))
+    surfDict_(fileName("surface")),
+    createAMIFaces_(false),
+    updatingAMI_(true),
+    srcFaceIDs_(),
+    tgtFaceIDs_(),
+    faceAreas0_(),
+    faceCentres0_(),
+    nbrFaceAreas0_(),
+    nbrFaceCentres0_()
 {
     // Neighbour patch might not be valid yet so no transformation
     // calculation possible
@@ -518,6 +1165,7 @@ Foam::cyclicAMIPolyPatch::cyclicAMIPolyPatch
 )
 :
     coupledPolyPatch(name, dict, index, bm, patchType),
+    updated_(false),
     nbrPatchName_(dict.lookupOrDefault<word>("neighbourPatch", "")),
     coupleGroup_(dict),
     nbrPatchID_(-1),
@@ -545,7 +1193,15 @@ Foam::cyclicAMIPolyPatch::cyclicAMIPolyPatch
     AMIRequireMatch_(true),
     AMILowWeightCorrection_(dict.lookupOrDefault("lowWeightCorrection", -1.0)),
     surfPtr_(nullptr),
-    surfDict_(dict.subOrEmptyDict("surface"))
+    surfDict_(dict.subOrEmptyDict("surface")),
+    createAMIFaces_(false),
+    updatingAMI_(true),
+    srcFaceIDs_(),
+    tgtFaceIDs_(),
+    faceAreas0_(),
+    faceCentres0_(),
+    nbrFaceAreas0_(),
+    nbrFaceCentres0_()
 {
     if (nbrPatchName_ == word::null && !coupleGroup_.valid())
     {
@@ -605,6 +1261,18 @@ Foam::cyclicAMIPolyPatch::cyclicAMIPolyPatch
 
     // Neighbour patch might not be valid yet so no transformation
     // calculation possible
+
+    // If topology change, recover the sizes of the original patches
+    label srcSize0 = 0;
+    if (dict.readIfPresent("srcSize", srcSize0))
+    {
+        srcFaceIDs_.setSize(srcSize0);
+    }
+    label tgtSize0 = 0;
+    if (dict.readIfPresent("tgtSize", tgtSize0))
+    {
+        tgtFaceIDs_.setSize(tgtSize0);
+    }
 }
 
 
@@ -615,6 +1283,7 @@ Foam::cyclicAMIPolyPatch::cyclicAMIPolyPatch
 )
 :
     coupledPolyPatch(pp, bm),
+    updated_(false),
     nbrPatchName_(pp.nbrPatchName_),
     coupleGroup_(pp.coupleGroup_),
     nbrPatchID_(-1),
@@ -629,7 +1298,15 @@ Foam::cyclicAMIPolyPatch::cyclicAMIPolyPatch
     AMIRequireMatch_(pp.AMIRequireMatch_),
     AMILowWeightCorrection_(pp.AMILowWeightCorrection_),
     surfPtr_(nullptr),
-    surfDict_(pp.surfDict_)
+    surfDict_(pp.surfDict_),
+    createAMIFaces_(false),
+    updatingAMI_(true),
+    srcFaceIDs_(),
+    tgtFaceIDs_(),
+    faceAreas0_(),
+    faceCentres0_(),
+    nbrFaceAreas0_(),
+    nbrFaceCentres0_()
 {
     // Neighbour patch might not be valid yet so no transformation
     // calculation possible
@@ -647,6 +1324,7 @@ Foam::cyclicAMIPolyPatch::cyclicAMIPolyPatch
 )
 :
     coupledPolyPatch(pp, bm, index, newSize, newStart),
+    updated_(false),
     nbrPatchName_(nbrPatchName),
     coupleGroup_(pp.coupleGroup_),
     nbrPatchID_(-1),
@@ -661,7 +1339,15 @@ Foam::cyclicAMIPolyPatch::cyclicAMIPolyPatch
     AMIRequireMatch_(pp.AMIRequireMatch_),
     AMILowWeightCorrection_(pp.AMILowWeightCorrection_),
     surfPtr_(nullptr),
-    surfDict_(pp.surfDict_)
+    surfDict_(pp.surfDict_),
+    createAMIFaces_(false),
+    updatingAMI_(true),
+    srcFaceIDs_(),
+    tgtFaceIDs_(),
+    faceAreas0_(),
+    faceCentres0_(),
+    nbrFaceAreas0_(),
+    nbrFaceCentres0_()
 {
     if (nbrPatchName_ == name())
     {
@@ -686,6 +1372,7 @@ Foam::cyclicAMIPolyPatch::cyclicAMIPolyPatch
 )
 :
     coupledPolyPatch(pp, bm, index, mapAddressing, newStart),
+    updated_(false),
     nbrPatchName_(pp.nbrPatchName_),
     coupleGroup_(pp.coupleGroup_),
     nbrPatchID_(-1),
@@ -700,13 +1387,15 @@ Foam::cyclicAMIPolyPatch::cyclicAMIPolyPatch
     AMIRequireMatch_(pp.AMIRequireMatch_),
     AMILowWeightCorrection_(pp.AMILowWeightCorrection_),
     surfPtr_(nullptr),
-    surfDict_(pp.surfDict_)
-{}
-
-
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
-Foam::cyclicAMIPolyPatch::~cyclicAMIPolyPatch()
+    surfDict_(pp.surfDict_),
+    createAMIFaces_(false),
+    updatingAMI_(true),
+    srcFaceIDs_(),
+    tgtFaceIDs_(),
+    faceAreas0_(),
+    faceCentres0_(),
+    nbrFaceAreas0_(),
+    nbrFaceCentres0_()
 {}
 
 
@@ -1104,6 +1793,12 @@ void Foam::cyclicAMIPolyPatch::write(Ostream& os) const
     if (!surfDict_.empty())
     {
         surfDict_.writeEntry(surfDict_.dictName(), os);
+    }
+
+    if (createAMIFaces_)
+    {
+        os.writeEntry("srcSize", srcFaceIDs_.size());
+        os.writeEntry("tgtSize", tgtFaceIDs_.size());
     }
 }
 

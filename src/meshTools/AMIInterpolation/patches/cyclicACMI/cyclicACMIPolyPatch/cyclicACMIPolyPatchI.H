@@ -27,18 +27,6 @@ License
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-inline void Foam::cyclicACMIPolyPatch::setUpdated(const bool flag) const
-{
-    updated_ = flag;
-}
-
-
-inline bool Foam::cyclicACMIPolyPatch::updated() const
-{
-    return updated_;
-}
-
-
 inline const Foam::word& Foam::cyclicACMIPolyPatch::nonOverlapPatchName() const
 {
     return nonOverlapPatchName_;

@@ -75,9 +75,6 @@ private:
         //- Mask/weighting for target patch
         mutable scalarField tgtMask_;
 
-        //- Flag to indicate that AMI has been updated
-        mutable bool updated_;
-
 
 protected:
 
@@ -235,18 +232,12 @@ public:
 
 
     //- Destructor
-    virtual ~cyclicACMIPolyPatch();
+    virtual ~cyclicACMIPolyPatch() = default;
 
 
     // Member Functions
 
         // Access
-
-            //- Reset the updated flag
-            inline void setUpdated(bool flag) const;
-
-            //- Return access to the updated flag
-            inline bool updated() const;
 
             //- Return a reference to the neighbour patch
             virtual const cyclicACMIPolyPatch& neighbPatch() const;

@@ -33,6 +33,8 @@ License
 #include "flipOp.H"
 #include "profiling.H"
 
+#define DEBUGAMI(msg){Pout<< "[" << __FILE__ << ":" << __LINE__ << "]: " << #msg << "=" << msg << endl;}
+
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 template<class SourcePatch, class TargetPatch>
@@ -264,7 +266,6 @@ void Foam::AMIInterpolation<SourcePatch, TargetPatch>::agglomerate
         }
     }
 
-
     // Agglomerate weights and indices
     if (targetMapPtr.valid())
     {
@@ -298,7 +299,7 @@ void Foam::AMIInterpolation<SourcePatch, TargetPatch>::agglomerate
         //           the slots are equal to face indices.
         // A mapDistribute has:
         // - a subMap : these are face indices
-        // - a constructMap : these are from 'transferred-date' to slots
+        // - a constructMap : these are from 'transferred-data' to slots
 
         labelListList tgtSubMap(Pstream::nProcs());
 
@@ -616,10 +617,12 @@ Foam::AMIInterpolation<SourcePatch, TargetPatch>::AMIInterpolation
     srcAddress_(),
     srcWeights_(),
     srcWeightsSum_(),
+    srcCentroids_(),
     tgtMagSf_(),
     tgtAddress_(),
     tgtWeights_(),
     tgtWeightsSum_(),
+    tgtCentroids_(),
     triMode_(triMode),
     srcMapPtr_(nullptr),
     tgtMapPtr_(nullptr)
@@ -649,10 +652,12 @@ Foam::AMIInterpolation<SourcePatch, TargetPatch>::AMIInterpolation
     srcAddress_(),
     srcWeights_(),
     srcWeightsSum_(),
+    srcCentroids_(),
     tgtMagSf_(),
     tgtAddress_(),
     tgtWeights_(),
     tgtWeightsSum_(),
+    tgtCentroids_(),
     triMode_(triMode),
     srcMapPtr_(nullptr),
     tgtMapPtr_(nullptr)
@@ -683,10 +688,12 @@ Foam::AMIInterpolation<SourcePatch, TargetPatch>::AMIInterpolation
     srcAddress_(),
     srcWeights_(),
     srcWeightsSum_(),
+    srcCentroids_(),
     tgtMagSf_(),
     tgtAddress_(),
     tgtWeights_(),
     tgtWeightsSum_(),
+    tgtCentroids_(),
     triMode_(triMode),
     srcMapPtr_(nullptr),
     tgtMapPtr_(nullptr)
@@ -717,10 +724,12 @@ Foam::AMIInterpolation<SourcePatch, TargetPatch>::AMIInterpolation
     srcAddress_(),
     srcWeights_(),
     srcWeightsSum_(),
+    srcCentroids_(),
     tgtMagSf_(),
     tgtAddress_(),
     tgtWeights_(),
     tgtWeightsSum_(),
+    tgtCentroids_(),
     triMode_(triMode),
     srcMapPtr_(nullptr),
     tgtMapPtr_(nullptr)
@@ -834,13 +843,6 @@ Foam::AMIInterpolation<SourcePatch, TargetPatch>::AMIInterpolation
 }
 
 
-// * * * * * * * * * * * * * * * * Destructor * * * * * * * * * * * * * * * //
-
-template<class SourcePatch, class TargetPatch>
-Foam::AMIInterpolation<SourcePatch, TargetPatch>::~AMIInterpolation()
-{}
-
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class SourcePatch, class TargetPatch>
@@ -932,6 +934,7 @@ void Foam::AMIInterpolation<SourcePatch, TargetPatch>::update
         (
             srcAddress_,
             srcWeights_,
+            srcCentroids_,
             tgtAddress_,
             tgtWeights_
         );
@@ -1009,9 +1012,10 @@ void Foam::AMIInterpolation<SourcePatch, TargetPatch>::update
         AMIPtr->normaliseWeights(true, *this);
 
         // Cache maps and reset addresses
-        List<Map<label>> cMap;
-        srcMapPtr_.reset(new mapDistribute(globalSrcFaces, tgtAddress_, cMap));
-        tgtMapPtr_.reset(new mapDistribute(globalTgtFaces, srcAddress_, cMap));
+        List<Map<label>> cMapSrc;
+        srcMapPtr_.reset(new mapDistribute(globalSrcFaces, tgtAddress_, cMapSrc));
+        List<Map<label>> cMapTgt;
+        tgtMapPtr_.reset(new mapDistribute(globalTgtFaces, srcAddress_, cMapTgt));
     }
     else
     {
@@ -1033,6 +1037,7 @@ void Foam::AMIInterpolation<SourcePatch, TargetPatch>::update
         (
             srcAddress_,
             srcWeights_,
+            srcCentroids_,
             tgtAddress_,
             tgtWeights_
         );
@@ -1053,6 +1058,44 @@ void Foam::AMIInterpolation<SourcePatch, TargetPatch>::update
             << "    tgtMagSf       :" << gSum(tgtMagSf_) << nl
             << endl;
     }
+}
+
+
+template<class SourcePatch, class TargetPatch>
+void Foam::AMIInterpolation<SourcePatch, TargetPatch>::update
+(
+    autoPtr<mapDistribute>&& srcToTgtMap,
+    autoPtr<mapDistribute>&& tgtToSrcMap,
+    labelListList&& srcAddress,
+    scalarListList&& srcWeights,
+    labelListList&& tgtAddress,
+    scalarListList&& tgtWeights
+)
+{
+    DebugInFunction<< endl;
+
+//DebugVar("Update src|tgt addressing and weights");
+    srcAddress_.transfer(srcAddress);
+    srcWeights_.transfer(srcWeights);
+    tgtAddress_.transfer(tgtAddress);
+    tgtWeights_.transfer(tgtWeights);
+//DebugVar(srcAddress_);
+//DebugVar(srcWeights_);
+    // Reset the sums of the weights
+    srcWeightsSum_.setSize(srcWeights_.size());
+    forAll(srcWeights_, facei)
+    {
+        srcWeightsSum_[facei] = sum(srcWeights_[facei]);
+    }
+
+    tgtWeightsSum_.setSize(tgtWeights_.size());
+    forAll(tgtWeights_, facei)
+    {
+        tgtWeightsSum_[facei] = sum(tgtWeights_[facei]);
+    }
+
+    srcMapPtr_ = srcToTgtMap;
+    tgtMapPtr_ = tgtToSrcMap;
 }
 
 
@@ -1397,7 +1440,7 @@ void Foam::AMIInterpolation<SourcePatch, TargetPatch>::interpolateToSource
             FatalErrorInFunction
                 << "Employing default values when sum of weights falls below "
                 << lowWeightCorrection_
-                << " but supplied default field size is not equal to target "
+                << " but supplied default field size is not equal to source "
                 << "patch size" << nl
                 << "    default values = " << defaultValues.size() << nl
                 << "    source patch   = " << srcAddress_.size() << nl
@@ -1448,6 +1491,7 @@ void Foam::AMIInterpolation<SourcePatch, TargetPatch>::interpolateToSource
                 forAll(faces, i)
                 {
                     cop(result[facei], facei, fld[faces[i]], weights[i]);
+//Info<< "interpolateToSource: facei:" << facei << " tgtFacei:" << faces[i] << " fld[tgtFacei]:" << fld[faces[i]] << " weights[i]:" << weights[i] << " result[i]:" << result[i] << endl;
                 }
             }
         }

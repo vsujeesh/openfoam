@@ -50,186 +50,185 @@ void Foam::cyclicACMIPolyPatch::resetAMI
     const AMIPatchToPatchInterpolation::interpolationMethod&
 ) const
 {
-    if (owner())
+    if (!owner())
     {
-        const polyPatch& nonOverlapPatch = this->nonOverlapPatch();
+        return;
+    }
 
+    const polyPatch& nonOverlapPatch = this->nonOverlapPatch();
+
+    if (debug)
+    {
+        Pout<< "cyclicACMIPolyPatch::resetAMI : recalculating weights"
+            << " for " << name() << " and " << nonOverlapPatch.name()
+            << endl;
+    }
+
+    if (boundaryMesh().mesh().hasCellCentres())
+    {
         if (debug)
         {
-            Pout<< "cyclicACMIPolyPatch::resetAMI : recalculating weights"
+            Pout<< "cyclicACMIPolyPatch::resetAMI : clearing cellCentres"
                 << " for " << name() << " and " << nonOverlapPatch.name()
                 << endl;
         }
 
-        if (boundaryMesh().mesh().hasCellCentres())
-        {
-            if (debug)
-            {
-                Pout<< "cyclicACMIPolyPatch::resetAMI : clearing cellCentres"
-                    << " for " << name() << " and " << nonOverlapPatch.name()
-                    << endl;
-            }
-
-            //WarningInFunction
-            //    << "The mesh already has cellCentres calculated when"
-            //    << " resetting ACMI " << name() << "." << endl
-            //    << "This is a problem since ACMI adapts the face areas"
-            //    << " (to close cells) so this has" << endl
-            //    << "to be done before cell centre calculation." << endl
-            //    << "This can happen if e.g. the cyclicACMI is after"
-            //    << " any processor patches in the boundary." << endl;
-            const_cast<polyMesh&>
-            (
-                boundaryMesh().mesh()
-            ).primitiveMesh::clearGeom();
-        }
-
-
-        // Trigger re-building of faceAreas
-        (void)boundaryMesh().mesh().faceAreas();
-
-
-        // Calculate the AMI using partial face-area-weighted. This leaves
-        // the weights as fractions of local areas (sum(weights) = 1 means
-        // face is fully covered)
-        cyclicAMIPolyPatch::resetAMI
+        //WarningInFunction
+        //    << "The mesh already has cellCentres calculated when"
+        //    << " resetting ACMI " << name() << "." << endl
+        //    << "This is a problem since ACMI adapts the face areas"
+        //    << " (to close cells) so this has" << endl
+        //    << "to be done before cell centre calculation." << endl
+        //    << "This can happen if e.g. the cyclicACMI is after"
+        //    << " any processor patches in the boundary." << endl;
+        const_cast<polyMesh&>
         (
-            AMIPatchToPatchInterpolation::imPartialFaceAreaWeight
-        );
+            boundaryMesh().mesh()
+        ).primitiveMesh::clearGeom();
+    }
 
-        AMIPatchToPatchInterpolation& AMI =
-            const_cast<AMIPatchToPatchInterpolation&>(this->AMI());
 
-        // Output some stats. AMIInterpolation will have already output the
-        // average weights ("sum(weights) min:1 max:1 average:1")
+    // Trigger re-building of faceAreas
+    (void)boundaryMesh().mesh().faceAreas();
+
+
+    // Calculate the AMI using partial face-area-weighted. This leaves
+    // the weights as fractions of local areas (sum(weights) = 1 means
+    // face is fully covered)
+    cyclicAMIPolyPatch::resetAMI
+    (
+        AMIPatchToPatchInterpolation::imPartialFaceAreaWeight
+    );
+
+    AMIPatchToPatchInterpolation& AMI =
+        const_cast<AMIPatchToPatchInterpolation&>(this->AMI());
+
+    // Output some stats. AMIInterpolation will have already output the
+    // average weights ("sum(weights) min:1 max:1 average:1")
+    {
+        const scalarField& wghtsSum = AMI.srcWeightsSum();
+
+        label nUncovered = 0;
+        label nCovered = 0;
+        forAll(wghtsSum, facei)
         {
-            const scalarField& wghtsSum = AMI.srcWeightsSum();
-
-            label nUncovered = 0;
-            label nCovered = 0;
-            forAll(wghtsSum, facei)
+            scalar sum = wghtsSum[facei];
+            if (sum < tolerance_)
             {
-                scalar sum = wghtsSum[facei];
-                if (sum < tolerance_)
-                {
-                    nUncovered++;
-                }
-                else if (sum > scalar(1)-tolerance_)
-                {
-                    nCovered++;
-                }
+                nUncovered++;
             }
-            reduce(nUncovered, sumOp<label>());
-            reduce(nCovered, sumOp<label>());
-            label nTotal = returnReduce(wghtsSum.size(), sumOp<label>());
-
-            Info<< "ACMI: Patch source uncovered/blended/covered = "
-                << nUncovered << ", " << nTotal-nUncovered-nCovered
-                << ", " << nCovered << endl;
-        }
-        {
-            const scalarField& wghtsSum = AMI.tgtWeightsSum();
-
-            label nUncovered = 0;
-            label nCovered = 0;
-            forAll(wghtsSum, facei)
+            else if (sum > scalar(1)-tolerance_)
             {
-                scalar sum = wghtsSum[facei];
-                if (sum < tolerance_)
-                {
-                    nUncovered++;
-                }
-                else if (sum > scalar(1)-tolerance_)
-                {
-                    nCovered++;
-                }
-            }
-            reduce(nUncovered, sumOp<label>());
-            reduce(nCovered, sumOp<label>());
-            label nTotal = returnReduce(wghtsSum.size(), sumOp<label>());
-
-            Info<< "ACMI: Patch target uncovered/blended/covered = "
-                << nUncovered << ", " << nTotal-nUncovered-nCovered
-                << ", " << nCovered << endl;
-        }
-
-        srcMask_ =
-            min(scalar(1) - tolerance_, max(tolerance_, AMI.srcWeightsSum()));
-
-        tgtMask_ =
-            min(scalar(1) - tolerance_, max(tolerance_, AMI.tgtWeightsSum()));
-
-
-        // Adapt owner side areas. Note that in uncoupled situations (e.g.
-        // decomposePar) srcMask, tgtMask can be zero size.
-        if (srcMask_.size())
-        {
-            vectorField::subField Sf = faceAreas();
-            vectorField::subField noSf = nonOverlapPatch.faceAreas();
-
-            forAll(Sf, facei)
-            {
-                Sf[facei] *= srcMask_[facei];
-                noSf[facei] *= 1.0 - srcMask_[facei];
+                nCovered++;
             }
         }
-        // Adapt slave side areas
-        if (tgtMask_.size())
+        reduce(nUncovered, sumOp<label>());
+        reduce(nCovered, sumOp<label>());
+        label nTotal = returnReduce(wghtsSum.size(), sumOp<label>());
+
+        Info<< "ACMI: Patch source uncovered/blended/covered = "
+            << nUncovered << ", " << nTotal-nUncovered-nCovered
+            << ", " << nCovered << endl;
+    }
+    {
+        const scalarField& wghtsSum = AMI.tgtWeightsSum();
+
+        label nUncovered = 0;
+        label nCovered = 0;
+        forAll(wghtsSum, facei)
         {
-            const cyclicACMIPolyPatch& cp =
-                refCast<const cyclicACMIPolyPatch>(this->neighbPatch());
-            const polyPatch& pp = cp.nonOverlapPatch();
-
-            vectorField::subField Sf = cp.faceAreas();
-            vectorField::subField noSf = pp.faceAreas();
-
-            forAll(Sf, facei)
+            scalar sum = wghtsSum[facei];
+            if (sum < tolerance_)
             {
-                Sf[facei] *= tgtMask_[facei];
-                noSf[facei] *= 1.0 - tgtMask_[facei];
+                nUncovered++;
+            }
+            else if (sum > scalar(1)-tolerance_)
+            {
+                nCovered++;
             }
         }
+        reduce(nUncovered, sumOp<label>());
+        reduce(nCovered, sumOp<label>());
+        label nTotal = returnReduce(wghtsSum.size(), sumOp<label>());
 
-        // Re-normalise the weights since the effect of overlap is already
-        // accounted for in the area.
+        Info<< "ACMI: Patch target uncovered/blended/covered = "
+            << nUncovered << ", " << nTotal-nUncovered-nCovered
+            << ", " << nCovered << endl;
+    }
+
+    srcMask_ =
+        min(scalar(1) - tolerance_, max(tolerance_, AMI.srcWeightsSum()));
+
+    tgtMask_ =
+        min(scalar(1) - tolerance_, max(tolerance_, AMI.tgtWeightsSum()));
+
+
+    // Adapt owner side areas. Note that in uncoupled situations (e.g.
+    // decomposePar) srcMask, tgtMask can be zero size.
+    if (srcMask_.size())
+    {
+        vectorField::subField Sf = faceAreas();
+        vectorField::subField noSf = nonOverlapPatch.faceAreas();
+
+        forAll(Sf, facei)
         {
-            scalarListList& srcWeights = AMI.srcWeights();
-            scalarField& srcWeightsSum = AMI.srcWeightsSum();
-            forAll(srcWeights, i)
+            Sf[facei] *= srcMask_[facei];
+            noSf[facei] *= 1.0 - srcMask_[facei];
+        }
+    }
+    // Adapt slave side areas
+    if (tgtMask_.size())
+    {
+        const cyclicACMIPolyPatch& cp =
+            refCast<const cyclicACMIPolyPatch>(this->neighbPatch());
+        const polyPatch& pp = cp.nonOverlapPatch();
+
+        vectorField::subField Sf = cp.faceAreas();
+        vectorField::subField noSf = pp.faceAreas();
+
+        forAll(Sf, facei)
+        {
+            Sf[facei] *= tgtMask_[facei];
+            noSf[facei] *= 1.0 - tgtMask_[facei];
+        }
+    }
+
+    // Re-normalise the weights since the effect of overlap is already
+    // accounted for in the area.
+    {
+        scalarListList& srcWeights = AMI.srcWeights();
+        scalarField& srcWeightsSum = AMI.srcWeightsSum();
+        forAll(srcWeights, i)
+        {
+            scalarList& wghts = srcWeights[i];
+            if (wghts.size())
             {
-                scalarList& wghts = srcWeights[i];
-                if (wghts.size())
+                scalar& sum = srcWeightsSum[i];
+
+                forAll(wghts, j)
                 {
-                    scalar& sum = srcWeightsSum[i];
-
-                    forAll(wghts, j)
-                    {
-                        wghts[j] /= sum;
-                    }
-                    sum = 1.0;
+                    wghts[j] /= sum;
                 }
+                sum = 1.0;
             }
         }
+    }
+    {
+        scalarListList& tgtWeights = AMI.tgtWeights();
+        scalarField& tgtWeightsSum = AMI.tgtWeightsSum();
+        forAll(tgtWeights, i)
         {
-            scalarListList& tgtWeights = AMI.tgtWeights();
-            scalarField& tgtWeightsSum = AMI.tgtWeightsSum();
-            forAll(tgtWeights, i)
+            scalarList& wghts = tgtWeights[i];
+            if (wghts.size())
             {
-                scalarList& wghts = tgtWeights[i];
-                if (wghts.size())
+                scalar& sum = tgtWeightsSum[i];
+                forAll(wghts, j)
                 {
-                    scalar& sum = tgtWeightsSum[i];
-                    forAll(wghts, j)
-                    {
-                        wghts[j] /= sum;
-                    }
-                    sum = 1.0;
+                    wghts[j] /= sum;
                 }
+                sum = 1.0;
             }
         }
-
-        // Set the updated flag
-        updated_ = true;
     }
 }
 
@@ -352,8 +351,7 @@ Foam::cyclicACMIPolyPatch::cyclicACMIPolyPatch
     nonOverlapPatchName_(word::null),
     nonOverlapPatchID_(-1),
     srcMask_(),
-    tgtMask_(),
-    updated_(false)
+    tgtMask_()
 {
     AMIRequireMatch_ = false;
 
@@ -375,8 +373,7 @@ Foam::cyclicACMIPolyPatch::cyclicACMIPolyPatch
     nonOverlapPatchName_(dict.lookup("nonOverlapPatch")),
     nonOverlapPatchID_(-1),
     srcMask_(),
-    tgtMask_(),
-    updated_(false)
+    tgtMask_()
 {
     AMIRequireMatch_ = false;
 
@@ -403,8 +400,7 @@ Foam::cyclicACMIPolyPatch::cyclicACMIPolyPatch
     nonOverlapPatchName_(pp.nonOverlapPatchName_),
     nonOverlapPatchID_(-1),
     srcMask_(),
-    tgtMask_(),
-    updated_(false)
+    tgtMask_()
 {
     AMIRequireMatch_ = false;
 
@@ -428,8 +424,7 @@ Foam::cyclicACMIPolyPatch::cyclicACMIPolyPatch
     nonOverlapPatchName_(nonOverlapPatchName),
     nonOverlapPatchID_(-1),
     srcMask_(),
-    tgtMask_(),
-    updated_(false)
+    tgtMask_()
 {
     AMIRequireMatch_ = false;
 
@@ -459,17 +454,10 @@ Foam::cyclicACMIPolyPatch::cyclicACMIPolyPatch
     nonOverlapPatchName_(pp.nonOverlapPatchName_),
     nonOverlapPatchID_(-1),
     srcMask_(),
-    tgtMask_(),
-    updated_(false)
+    tgtMask_()
 {
     AMIRequireMatch_ = false;
 }
-
-
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
-Foam::cyclicACMIPolyPatch::~cyclicACMIPolyPatch()
-{}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
