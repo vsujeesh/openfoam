@@ -611,6 +611,10 @@ public:
 
         // Checks
 
+            //- Check if src addresses are present in tgt addresses and
+            //- viceversa
+            bool checkSymmetricWeights(const bool log) const;
+
             //- Write face connectivity as OBJ file
             void writeFaceConnectivity
             (

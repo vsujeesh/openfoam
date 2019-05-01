@@ -296,7 +296,7 @@ void Foam::cyclicAMIPolyPatch::calcTransforms
 
 void Foam::cyclicAMIPolyPatch::restoreScaledGeometry()
 {
-DebugInFunction << endl;
+    DebugInFunction << endl;
 
     if (boundaryMesh().mesh().hasCellVolumes())
     {
@@ -313,10 +313,14 @@ DebugInFunction << endl;
 
     if (debug)
     {
-        Info<< "before: sum(mag(srcFaceAreas)):" << gSum(mag(srcFaceAreas)) << endl;
-        Info<< "before: sum(mag(faceAreas0)):" << gSum(mag(faceAreas0_)) << endl;
-        Info<< "before: sum(mag(tgtFaceAreas)):" << gSum(mag(tgtFaceAreas)) << endl;
-        Info<< "before: sum(mag(nbrFaceAreas0)):" << gSum(mag(nbrFaceAreas0_)) << endl;
+        Info<< "before: sum(mag(srcFaceAreas)):"
+            << gSum(mag(srcFaceAreas)) << endl;
+        Info<< "before: sum(mag(faceAreas0)):"
+            << gSum(mag(faceAreas0_)) << endl;
+        Info<< "before: sum(mag(tgtFaceAreas)):"
+            << gSum(mag(tgtFaceAreas)) << endl;
+        Info<< "before: sum(mag(nbrFaceAreas0)):"
+            << gSum(mag(nbrFaceAreas0_)) << endl;
     }
 
     srcFaceAreas = faceAreas0_;
@@ -331,10 +335,14 @@ DebugInFunction << endl;
 
     if (debug)
     {
-        Info<< "after: sum(mag(srcFaceAreas)):" << gSum(mag(srcFaceAreas)) << endl;
-        Info<< "after: sum(mag(faceAreas0)):" << gSum(mag(faceAreas0_)) << endl;
-        Info<< "after: sum(mag(tgtFaceAreas)):" << gSum(mag(tgtFaceAreas)) << endl;
-        Info<< "after: sum(mag(nbrFaceAreas0)):" << gSum(mag(nbrFaceAreas0_)) << endl;
+        Info<< "after: sum(mag(srcFaceAreas)):"
+            << gSum(mag(srcFaceAreas)) << endl;
+        Info<< "after: sum(mag(faceAreas0)):"
+            << gSum(mag(faceAreas0_)) << endl;
+        Info<< "after: sum(mag(tgtFaceAreas)):"
+            << gSum(mag(tgtFaceAreas)) << endl;
+        Info<< "after: sum(mag(nbrFaceAreas0)):"
+            << gSum(mag(nbrFaceAreas0_)) << endl;
     }
 }
 
@@ -356,18 +364,23 @@ bool Foam::cyclicAMIPolyPatch::removeAMIFaces(polyTopoChange& topoChange)
 
     const cyclicAMIPolyPatch& nbr = neighbPatch();
 
-    if (srcFaceIDs_.size())
+    const label newSrcFaceStart = srcFaceIDs_.size();
+
+    if (newSrcFaceStart != 0)
     {
-        for (label facei = srcFaceIDs_.size(); facei < size(); ++facei)
+        for (label facei = newSrcFaceStart; facei < size(); ++facei)
         {
             changeRequired = true;
             label meshFacei = start() + facei;
             topoChange.removeFace(meshFacei, -1);
         }
     }
-    if (tgtFaceIDs_.size())
+
+    const label newTgtFaceStart = tgtFaceIDs_.size();
+
+    if (newTgtFaceStart != 0)
     {
-        for (label facei = tgtFaceIDs_.size(); facei < nbr.size(); ++facei)
+        for (label facei = newTgtFaceStart; facei < nbr.size(); ++facei)
         {
             changeRequired = true;
             label meshFacei = nbr.start() + facei;
@@ -392,7 +405,7 @@ bool Foam::cyclicAMIPolyPatch::addAMIFaces(polyTopoChange& topoChange)
     polyMesh& mesh = const_cast<polyMesh&>(boundaryMesh().mesh());
     const faceZoneMesh& faceZones = mesh.faceZones();
 
-    // First source face address and weight are used to manipulate the
+    // First face address and weight are used to manipulate the
     // original face - all other addresses and weights are used to
     // create additional faces
     const labelListList& srcToTgtAddr = AMI().srcAddress();
@@ -400,11 +413,12 @@ bool Foam::cyclicAMIPolyPatch::addAMIFaces(polyTopoChange& topoChange)
     srcFaceIDs_.setSize(srcToTgtAddr.size());
     tgtFaceIDs_.setSize(tgtToSrcAddr.size());
 
-    label srcFaceNewStart = 0;
+    label nNewSrcFaces = 0;
     forAll(srcToTgtAddr, srcFacei)
     {
         const labelList& tgtAddr = srcToTgtAddr[srcFacei];
 
+        // No tgt faces linked to srcFacei
         if (tgtAddr.empty()) continue;
 
         srcFaceIDs_[srcFacei].setSize(tgtAddr.size());
@@ -419,8 +433,8 @@ bool Foam::cyclicAMIPolyPatch::addAMIFaces(polyTopoChange& topoChange)
             // - but areas are scaled by the weights (later)
 
             // New source face for each target face address
-            srcFaceIDs_[srcFacei][addri] = srcFaceNewStart + srcToTgtAddr.size();
-            ++srcFaceNewStart;
+            srcFaceIDs_[srcFacei][addri] = nNewSrcFaces + srcToTgtAddr.size();
+            ++nNewSrcFaces;
             (void)topoChange.addFace
             (
                 mesh.faces()[meshFacei],        // modified face
@@ -437,11 +451,12 @@ bool Foam::cyclicAMIPolyPatch::addAMIFaces(polyTopoChange& topoChange)
         }
     }
 
-    label tgtFaceNewStart = 0;
+    label nNewTgtFaces = 0;
     forAll(tgtToSrcAddr, tgtFacei)
     {
         const labelList& srcAddr = tgtToSrcAddr[tgtFacei];
 
+        // No src faces linked to tgtFacei
         if (srcAddr.empty()) continue;
 
         tgtFaceIDs_[tgtFacei].setSize(srcAddr.size());
@@ -456,8 +471,8 @@ bool Foam::cyclicAMIPolyPatch::addAMIFaces(polyTopoChange& topoChange)
             // - but areas are scaled by the weights (later)
 
             // New target face for each source face address
-            tgtFaceIDs_[tgtFacei][addri] = tgtFaceNewStart + tgtToSrcAddr.size();
-            ++tgtFaceNewStart;
+            tgtFaceIDs_[tgtFacei][addri] = nNewTgtFaces + tgtToSrcAddr.size();
+            ++nNewTgtFaces;
 
             (void)topoChange.addFace
             (
@@ -476,15 +491,15 @@ bool Foam::cyclicAMIPolyPatch::addAMIFaces(polyTopoChange& topoChange)
     }
 
     Info<< "New faces - " << name() << ": "
-        << returnReduce(srcFaceNewStart, sumOp<label>())
+        << returnReduce(nNewSrcFaces, sumOp<label>())
         << " "  << nbr.name() << ": "
-        << returnReduce(tgtFaceNewStart, sumOp<label>())
+        << returnReduce(nNewTgtFaces, sumOp<label>())
         << endl;
 
     if (debug)
     {
-        Pout<< "New faces - " << name() << ": " << srcFaceNewStart
-            << " "  << nbr.name() << ": " << tgtFaceNewStart << endl;
+        Pout<< "New faces - " << name() << ": " << nNewSrcFaces
+            << " "  << nbr.name() << ": " << nNewTgtFaces << endl;
     }
 
     return returnReduce(changedFaces, orOp<bool>());
@@ -516,16 +531,8 @@ void Foam::cyclicAMIPolyPatch::resetAMI
     AMIPtr_.clear();
 
     const cyclicAMIPolyPatch& nbr = neighbPatch();
-    pointField srcPoints
-    (
-        points,
-        meshPoints()
-    );
-    pointField nbrPoints
-    (
-        points,
-        neighbPatch().meshPoints()
-    );
+    pointField srcPoints(points, meshPoints());
+    pointField nbrPoints(points, neighbPatch().meshPoints());
 
     if (debug)
     {
@@ -600,6 +607,11 @@ void Foam::cyclicAMIPolyPatch::resetAMI
 
     // Set the updated flag
     updated_ = true;
+
+    if (debug)
+    {
+        AMIPtr_->checkSymmetricWeights(true);
+    }
 }
 
 
@@ -620,6 +632,10 @@ void Foam::cyclicAMIPolyPatch::setAMIFaces()
     vectorField::subField tgtFaceAreas = nbr.faceAreas();
 
     // Scale the new face areas and set the centroids
+    // Note:
+    // - storing local copies so that they can be re-applied after the call to
+    //   movePoints that will reset any changes to the areas and centroids
+    //
     // - For AMI, src and tgt patches should be the same
     // - For ACMI they are likely to be different!
     faceAreas0_ = srcFaceAreas;
@@ -711,7 +727,7 @@ void Foam::cyclicAMIPolyPatch::setAMIFaces()
         }
         AMIPtr_->srcMap().distribute(globalSrcToTgtAddr);
 
-
+        label nError = 0;
         forAll(srcToTgtAddr0, srcFacei0)
         {
             const labelList& newSrcFaces = srcFaceIDs_[srcFacei0];
@@ -731,12 +747,17 @@ void Foam::cyclicAMIPolyPatch::setAMIFaces()
 
                 if (addri == -1)
                 {
-                    FatalErrorInFunction
-                        << "Unable to find global source face "
-                        << globalSrcFaceIDs[srcFacei0]
-                        << " in globalTgtToSrcAddr[" << tgtFacei0 << "]: "
-                        << globalTgtToSrcAddr[tgtFacei0]
-                        << abort(FatalError);
+                    ++nError;
+                    continue;
+
+                    if (debug)
+                    {
+                        Pout<< "Unable to find global source face "
+                            << globalSrcFaceIDs[srcFacei0]
+                            << " in globalTgtToSrcAddr[" << tgtFacei0 << "]: "
+                            << globalTgtToSrcAddr[tgtFacei0]
+                            << endl;
+                    }
                 }
 
                 label tgtFacei1 = newTgtGlobalFaces[tgtFacei0][addri];
@@ -752,6 +773,12 @@ void Foam::cyclicAMIPolyPatch::setAMIFaces()
             }
         }
 
+        if (nError)
+        {
+            FatalErrorInFunction
+                << "Unable to find " << nError << " global source faces"
+                << abort(FatalError);
+        }
 
 
         // Gather Target side info
@@ -766,7 +793,6 @@ void Foam::cyclicAMIPolyPatch::setAMIFaces()
         AMIPtr_->srcMap().distribute(newSrcGlobalFaces);
 
         // Now have new src face indices for each tgt face
-
         forAll(tgtToSrcAddr0, tgtFacei0)
         {
             const labelList& newTgtFaces = tgtFaceIDs_[tgtFacei0];
@@ -782,12 +808,17 @@ void Foam::cyclicAMIPolyPatch::setAMIFaces()
 
                 if (addri == -1)
                 {
-                    FatalErrorInFunction
-                        << "Unable to find global target face "
-                        << globalTgtFaceIDs[tgtFacei0]
-                        << " in globalSrcToTgtAddr[" << srcFacei0 << "]: "
-                        << globalSrcToTgtAddr[srcFacei0]
-                        << abort(FatalError);
+                    ++nError;
+                    continue;
+
+                    if (debug)
+                    {
+                        Pout<< "Unable to find global target face "
+                            << globalTgtFaceIDs[tgtFacei0]
+                            << " in globalSrcToTgtAddr[" << srcFacei0 << "]: "
+                            << globalSrcToTgtAddr[srcFacei0]
+                            << endl;
+                    }
                 }
 
                 label srcFacei1 = newSrcGlobalFaces[srcFacei0][addri];
@@ -800,6 +831,13 @@ void Foam::cyclicAMIPolyPatch::setAMIFaces()
                 tgtToSrcAddr1[tgtFacei1] = labelList(1, srcFacei1);
                 nbrFaceCentres0_[tgtFacei1] = srcCtr0;
             }
+        }
+
+        if (nError)
+        {
+            FatalErrorInFunction
+                << "Unable to find " << nError << " global target faces"
+                << abort(FatalError);
         }
 
         // Update the maps
@@ -829,19 +867,34 @@ void Foam::cyclicAMIPolyPatch::setAMIFaces()
     }
     else
     {
-        forAll(srcToTgtAddr0, srcFacei)
+        label nError = 0;
+        forAll(srcToTgtAddr0, srcFacei0)
         {
-            const labelList& srcFaceTgtAddr = srcToTgtAddr0[srcFacei];
-            const scalarList& srcFaceTgtWght = srcToTgtWght0[srcFacei];
-            const pointList& srcFaceTgtCtr = srcCtr0[srcFacei];
-
+            const labelList& srcFaceTgtAddr = srcToTgtAddr0[srcFacei0];
+            const scalarList& srcFaceTgtWght = srcToTgtWght0[srcFacei0];
+            const pointList& srcFaceTgtCtr = srcCtr0[srcFacei0];
             forAll(srcFaceTgtAddr, addri)
             {
-                label newSrcFacei = srcFaceIDs_[srcFacei][addri];
+                label newSrcFacei = srcFaceIDs_[srcFacei0][addri];
 
-                // Find which slot srcFacei appears in tgt->src addressing
+                // Find which slot srcFacei0 appears in tgt->src addressing
                 label oldTgtFacei = srcFaceTgtAddr[addri];
-                label tgtAddri = tgtToSrcAddr0[oldTgtFacei].find(srcFacei);
+                label tgtAddri = tgtToSrcAddr0[oldTgtFacei].find(srcFacei0);
+
+                if (tgtAddri == -1)
+                {
+                    ++nError;
+                    continue;
+
+                    if (debug)
+                    {
+                        Pout<< "Unable to find source face " << srcFacei0
+                            << " in tgtToSrcAddr0[" << oldTgtFacei << "]: "
+                            << tgtToSrcAddr0[oldTgtFacei]
+                            << endl;
+                    }
+                }
+
                 label newTgtFacei = tgtFaceIDs_[oldTgtFacei][tgtAddri];
 
                 faceAreas0_[newSrcFacei] *= srcFaceTgtWght[addri];
@@ -849,7 +902,7 @@ void Foam::cyclicAMIPolyPatch::setAMIFaces()
 
                 point pt(srcFaceTgtCtr[addri]);
                 faceCentres0_[newSrcFacei] = pt;
-                reverseTransformPosition(pt, srcFacei);
+                reverseTransformPosition(pt, srcFacei0);
                 nbrFaceCentres0_[newTgtFacei] = pt;
 
                 // SANITY CHECK
@@ -860,39 +913,16 @@ void Foam::cyclicAMIPolyPatch::setAMIFaces()
                 tgtToSrcAddr1[newTgtFacei] = labelList(1, newSrcFacei);
             }
         }
-    }
-/*
-    if (debug)
-    {
-        const polyMesh& mesh = boundaryMesh().mesh();
-        static int LABEL=0;
+
+        if (nError)
         {
-            OBJstream obj(word("srcConnections_") + Foam::name(LABEL) + ".obj");
-            for (label facei=0; facei < size(); ++facei)
-            {
-                const point& fc = srcFaceCentres[facei];
-                const face& f = mesh.faces()[start() + facei];
-                forAll(f, fpi)
-                {
-                    obj.write(linePointRef(fc, mesh.points()[f[fpi]]));
-                }
-            }
+            FatalErrorInFunction
+                << "Unable to find " << nError
+                << " source faces in tgtToSrcAddr0"
+                << abort(FatalError);
         }
-        {
-            OBJstream obj(word("tgtConnections_") + Foam::name(LABEL) + ".obj");
-            for (label facei=0; facei < nbr.size(); ++facei)
-            {
-                const point& fc = tgtFaceCentres[facei];
-                const face& f = mesh.faces()[nbr.start() + facei];
-                forAll(f, fpi)
-                {
-                    obj.write(linePointRef(fc, mesh.points()[f[fpi]]));
-                }
-            }
-        }
-        LABEL++;
     }
-*/
+
     // Update the AMI addressing and weights to reflect the new 1-to-1
     // correspondence
     AMIPtr_->update
@@ -1059,7 +1089,6 @@ void Foam::cyclicAMIPolyPatch::movePoints
 )
 {
     DebugInFunction << endl;
-
 
     polyPatch::movePoints(pBufs, p);
 /*

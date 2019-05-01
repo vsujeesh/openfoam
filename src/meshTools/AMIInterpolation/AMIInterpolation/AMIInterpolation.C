@@ -51,9 +51,11 @@ Foam::AMIInterpolation<SourcePatch, TargetPatch>::interpolationMethodNames_
     { interpolationMethod::imPartialFaceAreaWeight, "partialFaceAreaWeightAMI" }
 });
 
+
 template<class SourcePatch, class TargetPatch>
 bool Foam::AMIInterpolation<SourcePatch, TargetPatch>::cacheIntersections_ =
     false;
+
 
 template<class SourcePatch, class TargetPatch>
 template<class Patch>
@@ -1013,9 +1015,15 @@ void Foam::AMIInterpolation<SourcePatch, TargetPatch>::update
 
         // Cache maps and reset addresses
         List<Map<label>> cMapSrc;
-        srcMapPtr_.reset(new mapDistribute(globalSrcFaces, tgtAddress_, cMapSrc));
+        srcMapPtr_.reset
+        (
+            new mapDistribute(globalSrcFaces, tgtAddress_, cMapSrc)
+        );
         List<Map<label>> cMapTgt;
-        tgtMapPtr_.reset(new mapDistribute(globalTgtFaces, srcAddress_, cMapTgt));
+        tgtMapPtr_.reset
+        (
+            new mapDistribute(globalTgtFaces, srcAddress_, cMapTgt)
+        );
     }
     else
     {
@@ -1074,13 +1082,11 @@ void Foam::AMIInterpolation<SourcePatch, TargetPatch>::update
 {
     DebugInFunction<< endl;
 
-//DebugVar("Update src|tgt addressing and weights");
     srcAddress_.transfer(srcAddress);
     srcWeights_.transfer(srcWeights);
     tgtAddress_.transfer(tgtAddress);
     tgtWeights_.transfer(tgtWeights);
-//DebugVar(srcAddress_);
-//DebugVar(srcWeights_);
+
     // Reset the sums of the weights
     srcWeightsSum_.setSize(srcWeights_.size());
     forAll(srcWeights_, facei)
@@ -1491,7 +1497,6 @@ void Foam::AMIInterpolation<SourcePatch, TargetPatch>::interpolateToSource
                 forAll(faces, i)
                 {
                     cop(result[facei], facei, fld[faces[i]], weights[i]);
-//Info<< "interpolateToSource: facei:" << facei << " tgtFacei:" << faces[i] << " fld[tgtFacei]:" << fld[faces[i]] << " weights[i]:" << weights[i] << " result[i]:" << result[i] << endl;
                 }
             }
         }
@@ -1734,6 +1739,73 @@ const
     }
 
     return -1;
+}
+
+
+template<class SourcePatch, class TargetPatch>
+bool Foam::AMIInterpolation<SourcePatch, TargetPatch>::checkSymmetricWeights
+(
+    const bool log
+) const
+{
+    if (Pstream::parRun() && (singlePatchProc_ == -1))
+    {
+        Log << "Checks only valid for serial running (currently)" << endl;
+
+        return true;
+    }
+
+    bool symmetricSrc = true;
+
+    Log << "    Checking for missing src face in tgt lists" << nl;
+
+    forAll(srcAddress_, srcFacei)
+    {
+        const labelList& tgtIds = srcAddress_[srcFacei];
+        for (const label tgtFacei : tgtIds)
+        {
+            if (!tgtAddress_[tgtFacei].found(srcFacei))
+            {
+                symmetricSrc = false;
+
+                Log << "       srcFacei:" << srcFacei
+                    << " not found in tgtToSrc list for tgtFacei:"
+                    << tgtFacei << nl;
+            }
+        }
+    }
+
+    if (symmetricSrc)
+    {
+        Log << "    - symmetric" << endl;
+    }
+
+    bool symmetricTgt = true;
+
+    Log << "    Checking for missing tgt face in src lists" << nl;
+
+    forAll(tgtAddress_, tgtFacei)
+    {
+        const labelList& srcIds = tgtAddress_[tgtFacei];
+        for (const label srcFacei : srcIds)
+        {
+            if (!srcAddress_[srcFacei].found(tgtFacei))
+            {
+                symmetricTgt = false;
+
+                Log << "       tgtFacei:" << tgtFacei
+                    << " not found in srcToTgt list for srcFacei:"
+                    << srcFacei << nl;
+            }
+        }
+    }
+
+    if (symmetricTgt)
+    {
+        Log << "    - symmetric" << endl;
+    }
+
+    return symmetricSrc && symmetricTgt;
 }
 
 

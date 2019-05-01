@@ -126,8 +126,9 @@ bool Foam::dynamicMotionSolverFvMeshAMI::update()
 
         // Accumulate the patch-based mesh changes
         // Note:
-        // - Updates the AMIs with using the new points and uses them to
-        //   remove old added faces and determine new faces to add
+        // - updates the AMIs using the new points
+        // - creates a topo change object that removes old added faces and
+        //   adds the new faces
         for (polyPatch& pp : pbm)
         {
             pp.setTopology(polyTopo);
