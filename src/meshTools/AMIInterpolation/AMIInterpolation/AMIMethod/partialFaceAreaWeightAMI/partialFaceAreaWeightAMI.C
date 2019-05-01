@@ -35,7 +35,7 @@ void Foam::partialFaceAreaWeightAMI<SourcePatch, TargetPatch>::setNextFaces
     label& startSeedi,
     label& srcFacei,
     label& tgtFacei,
-    const boolList& mapFlag,
+    const bitSet& mapFlag,
     labelList& seedFaces,
     const DynamicList<label>& visitedFaces,
     const bool errorOnNotFound

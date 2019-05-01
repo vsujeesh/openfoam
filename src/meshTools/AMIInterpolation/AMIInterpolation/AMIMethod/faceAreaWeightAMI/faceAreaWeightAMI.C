@@ -62,7 +62,7 @@ void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::calcAddressing
     seedFaces[srcFacei] = tgtFacei;
 
     // list to keep track of whether src face can be mapped
-    boolList mapFlag(nFacesRemaining, true);
+    bitSet mapFlag(nFacesRemaining, true);
 
     // reset starting seed
     label startSeedi = 0;
@@ -89,7 +89,7 @@ void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::calcAddressing
             tgtWght
         );
 
-        mapFlag[srcFacei] = false;
+        mapFlag.unset(srcFacei);
 
         nFacesRemaining--;
 
@@ -211,7 +211,7 @@ void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::setNextFaces
     label& startSeedi,
     label& srcFacei,
     label& tgtFacei,
-    const boolList& mapFlag,
+    const bitSet& mapFlag,
     labelList& seedFaces,
     const DynamicList<label>& visitedFaces,
     bool errorOnNotFound
@@ -228,7 +228,7 @@ void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::setNextFaces
     bool valuesSet = false;
     for (label faceS: srcNbrFaces)
     {
-        if (mapFlag[faceS] && seedFaces[faceS] == -1)
+        if (mapFlag.test(faceS) && seedFaces[faceS] == -1)
         {
             for (label faceT : visitedFaces)
             {
@@ -259,25 +259,31 @@ void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::setNextFaces
     else
     {
         // try to use existing seed
-        bool foundNextSeed = false;
-        for (label facei = startSeedi; facei < mapFlag.size(); ++facei)
+        label facei = startSeedi;
+        if (!mapFlag.test(startSeedi))
         {
-            if (mapFlag[facei])
+            facei = mapFlag.find_next(facei);
+        }
+        const label startSeedi0 = facei;
+
+        bool foundNextSeed = false;
+        while (facei != -1)
+        {
+            if (!foundNextSeed)
             {
-                if (!foundNextSeed)
-                {
-                    startSeedi = facei;
-                    foundNextSeed = true;
-                }
-
-                if (seedFaces[facei] != -1)
-                {
-                    srcFacei = facei;
-                    tgtFacei = seedFaces[facei];
-
-                    return;
-                }
+                startSeedi = facei;
+                foundNextSeed = true;
             }
+
+            if (seedFaces[facei] != -1)
+            {
+                srcFacei = facei;
+                tgtFacei = seedFaces[facei];
+
+                return;
+            }
+
+            facei = mapFlag.find_next(facei);
         }
 
         // perform new search to find match
@@ -287,25 +293,18 @@ void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::setNextFaces
                 << "target face" << endl;
         }
 
-        foundNextSeed = false;
-        for (label facei = startSeedi; facei < mapFlag.size(); ++facei)
+        facei = startSeedi0;
+        while (facei != -1)
         {
-            if (mapFlag[facei])
+            srcFacei = facei;
+            tgtFacei = this->findTargetFace(srcFacei, visitedFaces);
+
+            if (tgtFacei >= 0)
             {
-                if (!foundNextSeed)
-                {
-                    startSeedi = facei + 1;
-                    foundNextSeed = true;
-                }
-
-                srcFacei = facei;
-                tgtFacei = this->findTargetFace(srcFacei, visitedFaces);
-
-                if (tgtFacei >= 0)
-                {
-                    return;
-                }
+                return;
             }
+
+            facei = mapFlag.find_next(facei);
         }
 
         if (errorOnNotFound)
