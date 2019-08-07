@@ -214,7 +214,7 @@ void Foam::faceAreaWeightAMI<SourcePatch, TargetPatch>::setNextFaces
     const bitSet& mapFlag,
     labelList& seedFaces,
     const DynamicList<label>& visitedFaces,
-    bool errorOnNotFound
+    const bool errorOnNotFound
 ) const
 {
     addProfiling(ami, "faceAreaWeightAMI::setNextFaces");

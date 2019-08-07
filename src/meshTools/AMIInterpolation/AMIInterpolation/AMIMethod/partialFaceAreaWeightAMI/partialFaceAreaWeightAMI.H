@@ -65,19 +65,22 @@ private:
         //- No copy assignment
         void operator=(const partialFaceAreaWeightAMI&) = delete;
 
-        // Marching front
 
-            //- Set the source and target seed faces
-            virtual void setNextFaces
-            (
-                label& startSeedi,
-                label& srcFacei,
-                label& tgtFacei,
-                const bitSet& mapFlag,
-                labelList& seedFaces,
-                const DynamicList<label>& visitedFaces,
-                bool errorOnNotFound = true
-            ) const;
+protected:
+
+    // Protected Member Functions
+
+        //- Set the source and target seed faces
+        virtual void setNextFaces
+        (
+            label& startSeedi,
+            label& srcFacei,
+            label& tgtFacei,
+            const bitSet& mapFlag,
+            labelList& seedFaces,
+            const DynamicList<label>& visitedFaces,
+            const bool errorOnNotFound = true
+        ) const;
 
 
 public:

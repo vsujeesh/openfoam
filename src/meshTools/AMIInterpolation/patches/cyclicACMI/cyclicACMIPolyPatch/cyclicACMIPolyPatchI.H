@@ -57,10 +57,8 @@ inline const Foam::scalarField& Foam::cyclicACMIPolyPatch::mask() const
     {
         return srcMask_;
     }
-    else
-    {
-        return neighbPatch().tgtMask();
-    }
+
+    return neighbPatch().tgtMask();
 }
 
 

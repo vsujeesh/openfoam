@@ -445,8 +445,6 @@ public:
             //  these fvPatches.
             void removeFvBoundary();
 
-void resetMeshPhi(const pointField& p, const pointField& p0);
-
             //- Return cell face motion fluxes
             surfaceScalarField& setPhi();
 

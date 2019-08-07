@@ -145,16 +145,10 @@ protected:
             labelListList tgtFaceIDs_;
 
             //- Temporary storage for AMI face areas
-            vectorField faceAreas0_;
+            mutable vectorField faceAreas0_;
 
             //- Temporary storage for AMI face centres
-            vectorField faceCentres0_;
-
-            //- Temporary storage for AMI neighbour face areas
-            vectorField nbrFaceAreas0_;
-
-            //- Temporary storage for AMI neighbour face centres
-            vectorField nbrFaceCentres0_;
+            mutable vectorField faceCentres0_;
 
 
     // Protected Member Functions
@@ -166,6 +160,8 @@ protected:
             virtual bool addAMIFaces(polyTopoChange& topoChange);
 
             virtual void setAMIFaces();
+
+            virtual void restoreScaledGeometry();
 
 
         //- Reset the AMI interpolator, supply patch points
@@ -185,8 +181,6 @@ protected:
 
         //- Recalculate the transformation tensors
         virtual void calcTransforms();
-
-virtual void restoreScaledGeometry();
 
         //- Initialise the calculation of the patch geometry
         virtual void initGeometry(PstreamBuffers&);
@@ -328,25 +322,35 @@ public:
 
         // Access
 
+            //- Tolerance used e.g. for area calculations/limits
+            static const scalar tolerance_;
+
+            //- Flag to indicate whether the AMI can be reset
+            inline bool canResetAMI() const;
+
              //- Reset the updated flag
             inline void setUpdated(bool flag) const;
 
             //- Return access to the updated flag
             inline bool updated() const;
 
-            bool updatingAMI() const
-            {
-                return updatingAMI_;
-            }
+            //- Return access to the createAMIFaces flag
+            inline bool createAMIFaces() const;
+
+            //- Return access to the updated flag
+            inline bool updatingAMI() const;
 
 void clearAMI() const
 {
     AMIPtr_.clear();
 }
 
-virtual bool changeTopology() const;
+            //- Return true if this patch changes the mesh topology
+            //  True when createAMIFaces is true
+            virtual bool changeTopology() const;
 
-virtual bool setTopology(polyTopoChange& topoChange);
+            //- Set topology changes in the polyTopoChange object
+            virtual bool setTopology(polyTopoChange& topoChange);
 
             //- Is patch 'coupled'. Note that on AMI the geometry is not
             //- coupled but the fields are!
@@ -373,8 +377,22 @@ virtual bool setTopology(polyTopoChange& topoChange);
             //- Return a reference to the AMI interpolator
             const AMIPatchToPatchInterpolation& AMI() const;
 
+            //- Helper function to return the weights
+            inline const scalarListList& weights() const;
+
+            //- Helper function to return the weights sum
+            inline const scalarField& weightsSum() const;
+
             //- Return true if applying the low weight correction
             bool applyLowWeightCorrection() const;
+
+            //- Return access to the initial face areas
+            //  Used for topology change
+            inline vectorField& faceAreas0() const;
+
+            //- Return access to the initial face centres
+            //  Used for topology change
+            inline vectorField& faceCentres0() const;
 
 
             // Transformations

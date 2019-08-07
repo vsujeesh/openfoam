@@ -126,7 +126,7 @@ protected:
                 const bitSet& mapFlag,
                 labelList& seedFaces,
                 const DynamicList<label>& visitedFaces,
-                bool errorOnNotFound = true
+                const bool errorOnNotFound = true
             ) const;
 
 

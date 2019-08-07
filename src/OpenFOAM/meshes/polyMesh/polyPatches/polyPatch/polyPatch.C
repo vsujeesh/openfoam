@@ -62,6 +62,7 @@ void Foam::polyPatch::movePoints(PstreamBuffers&, const pointField& p)
     primitivePatch::movePoints(p);
 }
 
+
 void Foam::polyPatch::updateMesh(PstreamBuffers&)
 {
     primitivePatch::clearGeom();

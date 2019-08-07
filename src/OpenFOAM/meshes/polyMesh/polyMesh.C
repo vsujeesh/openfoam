@@ -1089,7 +1089,6 @@ const Foam::pointField& Foam::polyMesh::oldPoints() const
 {
     if (oldPointsPtr_.empty())
     {
-DebugVar("*** oldPoints ***");
         if (debug)
         {
             WarningInFunction

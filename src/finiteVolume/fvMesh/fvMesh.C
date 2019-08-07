@@ -771,64 +771,6 @@ void Foam::fvMesh::mapFields(const mapPolyMesh& meshMap)
 }
 
 
-void Foam::fvMesh::resetMeshPhi(const pointField& p, const pointField& p0)
-{
-    DebugInFunction << endl;
-
-    // Create swept volumes
-    const faceList& f = faces();
-
-    tmp<scalarField> tsweptVols(new scalarField(f.size()));
-    scalarField& sweptVols = tsweptVols.ref();
-
-    forAll(f, facei)
-    {
-        sweptVols[facei] = f[facei].sweptVol(p, p0);
-    }
-
-    if (!phiPtr_)
-    {
-        // Create mesh motion flux
-        phiPtr_ = new surfaceScalarField
-        (
-            IOobject
-            (
-                "meshPhi",
-                this->time().timeName(),
-                *this,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE,
-                false
-            ),
-            *this,
-            dimVolume/dimTime
-        );
-    }
-    else
-    {
-        if (phiPtr_->timeIndex() != time().timeIndex())
-        {
-            phiPtr_->oldTime();
-        }
-    }
-    const scalar rDeltaT = 1.0/time().deltaTValue();
-
-    surfaceScalarField& phi = *phiPtr_;
-    phi.primitiveFieldRef() =
-        scalarField::subField(sweptVols, nInternalFaces());
-    phi.primitiveFieldRef() *= rDeltaT;
-
-    const fvPatchList& patches = boundary();
-
-    surfaceScalarField::Boundary& phibf = phi.boundaryFieldRef();
-    forAll(patches, patchi)
-    {
-        phibf[patchi] = patches[patchi].patchSlice(sweptVols);
-        phibf[patchi] *= rDeltaT;
-    }
-}
-
-
 Foam::tmp<Foam::scalarField> Foam::fvMesh::movePoints(const pointField& p)
 {
     DebugInFunction << endl;

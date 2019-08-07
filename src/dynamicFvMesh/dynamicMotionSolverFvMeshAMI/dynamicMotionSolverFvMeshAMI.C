@@ -35,6 +35,8 @@ License
 #include "MeshObject.H"
 #include "lduMesh.H"
 
+#include "processorFvPatch.H"
+
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
@@ -98,6 +100,18 @@ bool Foam::dynamicMotionSolverFvMeshAMI::update()
     moving(false);
     topoChanging(false);
 
+    if (debug)
+    {
+        for (const fvPatch& fvp : boundary())
+        {
+            if (!isA<processorFvPatch>(fvp))
+            {
+                Info<< "1 --- patch:" << fvp.patch().name()
+                    << " area:" << gSum(fvp.magSf()) << endl;
+            }
+        }
+    }
+
     pointField newPoints(motionPtr_->curPoints());
 
     polyBoundaryMesh& pbm = const_cast<polyBoundaryMesh&>(boundaryMesh());
@@ -107,7 +121,7 @@ bool Foam::dynamicMotionSolverFvMeshAMI::update()
     for (polyPatch& pp : pbm)
     {
         DebugInfo
-            << "pre- topology change: patch " << pp.name()
+            << "pre-topology change: patch " << pp.name()
             << " size:" << returnReduce(pp.size(), sumOp<label>())
             << " mag(faceAreas):" << gSum(mag(pp.faceAreas())) << endl;
 
@@ -124,7 +138,7 @@ bool Foam::dynamicMotionSolverFvMeshAMI::update()
         // Set new point positions in polyTopo object
         polyTopo.movePoints(newPoints);
 
-        // Accumulate the patch-based mesh changes
+        // Accumulate the patch-based mesh changes on the current mesh
         // Note:
         // - updates the AMIs using the new points
         // - creates a topo change object that removes old added faces and
@@ -138,9 +152,10 @@ bool Foam::dynamicMotionSolverFvMeshAMI::update()
         // Note
         // - changeMesh leads to polyMesh::resetPrimitives which will also
         //   trigger polyBoundaryMesh::updateMesh (init and update) and
-        //   ::calcGeometry
+        //   ::calcGeometry (with topoChanging = false)
         // - BUT: mesh still corresponds to original (non-extended mesh) so
         //   we want to bypass these calls...
+        // - after changes topoChanging = true
         autoPtr<mapPolyMesh> map =
             polyTopo.changeMesh
             (
@@ -149,73 +164,25 @@ bool Foam::dynamicMotionSolverFvMeshAMI::update()
             );
 
         // Apply topology change - update fv geometry and map fields
-        // - polyMesh::updateMesh -> (fires initUpdateMesh and updateMesh in AMI BCs) called before mapFields
+        // - polyMesh::updateMesh
+        //   - fires initUpdateMesh and updateMesh in AMI BCs - called before
+        //     mapFields
         // - AMI addressing must be up-to-date - used by, e.g. FaceCellWave
         // - will trigger (again) polyBoundaryMesh::updateMesh (init and update)
         updateMesh(map());
 
         // Move points and update derived properties
-        // Note: resets face areas based on raw point locations!!!polyBoundaryMesh::updateMesh (init and update)polyBoundaryMesh::updateMesh (init and update)polyBoundaryMesh::updateMesh (init and update)
-        // Note: processorPolyPatches will trigger calculation of faceCentres
-        // (and therefore cell volumes), so need to update faceAreas in
-        // initMovePoints since proc patches will be evaluated later than
-        // AMI patches
+        // Note:
+        // - resets face areas based on raw point locations!
+        // - polyBoundaryMesh::updateMesh (init and update)
+        // Note:
+        // - processorPolyPatches will trigger calculation of faceCentres
+        //   (and therefore cell volumes), so need to update faceAreas in
+        //   initMovePoints since proc patches will be evaluated later than
+        //   AMI patches
         if (map().hasMotionPoints())
         {
             movePoints(map().preMotionPoints());
-        }
-
-        surfaceScalarField& meshPhi = setPhi();
-        surfaceScalarField::Boundary& meshPhiBf = meshPhi.boundaryFieldRef();
-        for (polyPatch& pp : pbm)
-        {
-            if (isA<cyclicAMIPolyPatch>(pp))
-            {
-// Might be the nbr side that was moving!!!
-
-                const cyclicAMIPolyPatch& cami =
-                    dynamic_cast<const cyclicAMIPolyPatch&>(pp);
-
-                if (cami.owner())
-                {
-                    scalarField& phip = meshPhiBf[cami.index()];
-                    forAll(phip, facei)
-                    {
-                        label meshFacei = cami.start() + facei;
-                        const face& f = faces()[meshFacei];
-                        scalar geomArea = f.mag(points());
-                        scalar scaledArea = mag(cami.faceAreas()[facei]);
-                        phip[facei] *= scaledArea/geomArea;
-                    }
-
-                    scalarField srcMeshPhi(phip);
-                    if (Pstream::parRun())
-                    {
-                        cami.AMI().srcMap().distribute(srcMeshPhi);
-                    }
-
-                    const labelListList& tgtToSrcAddr = cami.AMI().tgtAddress();
-                    const cyclicAMIPolyPatch& nbr = cami.neighbPatch();
-                    scalarField& nbrPhip = meshPhiBf[nbr.index()];
-
-                    forAll(nbr, tgtFacei)
-                    {
-                        label srcFacei = tgtToSrcAddr[tgtFacei][0];
-                        nbrPhip[tgtFacei] = -srcMeshPhi[srcFacei];
-                    }
-
-                    DebugInfo
-                        << "patch:" << cami.name()
-                        << " sum(area):" << gSum(mag(cami.faceAreas()))
-                        << " min(mag(faceAreas):" << gMin(mag(cami.faceAreas()))
-                        <<  " sum(meshPhi):" << gSum(phip) << nl
-                        << "patch:" << nbr.name()
-                        << " sum(area):" << gSum(mag(nbr.faceAreas()))
-                        << " min(mag(faceAreas):" << gMin(mag(nbr.faceAreas()))
-                        << " sum(meshPhi):" << gSum(nbrPhip)
-                        << endl;
-                }
-            }
         }
     }
     else
@@ -228,6 +195,18 @@ bool Foam::dynamicMotionSolverFvMeshAMI::update()
     if (Uptr)
     {
         Uptr->correctBoundaryConditions();
+    }
+
+    if (debug)
+    {
+        for (const fvPatch& fvp : boundary())
+        {
+            if (!isA<processorFvPatch>(fvp))
+            {
+                Info<< "2 --- patch:" << fvp.patch().name()
+                    << " area:" << gSum(fvp.magSf()) << endl;
+            }
+        }
     }
 
     return true;
