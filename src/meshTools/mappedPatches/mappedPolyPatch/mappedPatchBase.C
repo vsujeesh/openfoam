@@ -120,12 +120,15 @@ void Foam::mappedPatchBase::collectSamples
     pointField& patchFc
 ) const
 {
+    const label myRank = Pstream::myProcNo(comm_);
+    const label nProcs = Pstream::nProcs(comm_);
+
     // Collect all sample points and the faces they come from.
     {
-        List<pointField> globalFc(Pstream::nProcs());
-        globalFc[Pstream::myProcNo()] = facePoints;
-        Pstream::gatherList(globalFc);
-        Pstream::scatterList(globalFc);
+        List<pointField> globalFc(nProcs);
+        globalFc[myRank] = facePoints;
+        Pstream::gatherList(globalFc, Pstream::msgType(), comm_);
+        Pstream::scatterList(globalFc, Pstream::msgType(), comm_);
         // Rework into straight list
         patchFc = ListListOps::combine<pointField>
         (
@@ -135,10 +138,10 @@ void Foam::mappedPatchBase::collectSamples
     }
 
     {
-        List<pointField> globalSamples(Pstream::nProcs());
-        globalSamples[Pstream::myProcNo()] = samplePoints(facePoints);
-        Pstream::gatherList(globalSamples);
-        Pstream::scatterList(globalSamples);
+        List<pointField> globalSamples(nProcs);
+        globalSamples[myRank] = samplePoints(facePoints);
+        Pstream::gatherList(globalSamples, Pstream::msgType(), comm_);
+        Pstream::scatterList(globalSamples, Pstream::msgType(), comm_);
         // Rework into straight list
         samples = ListListOps::combine<pointField>
         (
@@ -148,11 +151,11 @@ void Foam::mappedPatchBase::collectSamples
     }
 
     {
-        labelListList globalFaces(Pstream::nProcs());
-        globalFaces[Pstream::myProcNo()] = identity(patch_.size());
+        labelListList globalFaces(nProcs);
+        globalFaces[myRank] = identity(patch_.size());
         // Distribute to all processors
-        Pstream::gatherList(globalFaces);
-        Pstream::scatterList(globalFaces);
+        Pstream::gatherList(globalFaces, Pstream::msgType(), comm_);
+        Pstream::scatterList(globalFaces, Pstream::msgType(), comm_);
 
         patchFaces = ListListOps::combine<labelList>
         (
@@ -162,10 +165,10 @@ void Foam::mappedPatchBase::collectSamples
     }
 
     {
-        labelList nPerProc(Pstream::nProcs());
-        nPerProc[Pstream::myProcNo()] = patch_.size();
-        Pstream::gatherList(nPerProc);
-        Pstream::scatterList(nPerProc);
+        labelList nPerProc(nProcs);
+        nPerProc[myRank] = patch_.size();
+        Pstream::gatherList(nPerProc, Pstream::msgType(), comm_);
+        Pstream::scatterList(nPerProc, Pstream::msgType(), comm_);
 
         patchFaceProcs.setSize(patchFaces.size());
 
@@ -192,6 +195,8 @@ void Foam::mappedPatchBase::findSamples
     pointField& sampleLocations
 ) const
 {
+    const label myRank = Pstream::myProcNo(comm_);
+
     // Lookup the correct region
     const polyMesh& mesh = sampleMesh();
 
@@ -221,7 +226,7 @@ void Foam::mappedPatchBase::findSamples
                 if (celli == -1)
                 {
                     nearest[sampleI].second().first() = Foam::sqr(GREAT);
-                    nearest[sampleI].second().second() = Pstream::myProcNo();
+                    nearest[sampleI].second().second() = myRank;
                 }
                 else
                 {
@@ -234,7 +239,7 @@ void Foam::mappedPatchBase::findSamples
                         celli
                     );
                     nearest[sampleI].second().first() = magSqr(cc-sample);
-                    nearest[sampleI].second().second() = Pstream::myProcNo();
+                    nearest[sampleI].second().second() = myRank;
                 }
             }
             break;
@@ -262,7 +267,7 @@ void Foam::mappedPatchBase::findSamples
                     nearest[sampleI].first().hitPoint()
                    -sample
                 );
-                nearest[sampleI].second().second() = Pstream::myProcNo();
+                nearest[sampleI].second().second() = myRank;
             }
             break;
         }
@@ -278,7 +283,7 @@ void Foam::mappedPatchBase::findSamples
                 forAll(samples, sampleI)
                 {
                     nearest[sampleI].second().first() = Foam::sqr(GREAT);
-                    nearest[sampleI].second().second() = Pstream::myProcNo();
+                    nearest[sampleI].second().second() = myRank;
                 }
             }
             else
@@ -325,16 +330,14 @@ void Foam::mappedPatchBase::findSamples
                     if (!nearInfo.hit())
                     {
                         nearest[sampleI].second().first() = Foam::sqr(GREAT);
-                        nearest[sampleI].second().second() =
-                            Pstream::myProcNo();
+                        nearest[sampleI].second().second() = myRank;
                     }
                     else
                     {
                         point fc(pp[nearInfo.index()].centre(pp.points()));
                         nearInfo.setPoint(fc);
                         nearest[sampleI].second().first() = magSqr(fc-sample);
-                        nearest[sampleI].second().second() =
-                            Pstream::myProcNo();
+                        nearest[sampleI].second().second() = myRank;
                     }
                 }
             }
@@ -352,7 +355,7 @@ void Foam::mappedPatchBase::findSamples
                 forAll(samples, sampleI)
                 {
                     nearest[sampleI].second().first() = Foam::sqr(GREAT);
-                    nearest[sampleI].second().second() = Pstream::myProcNo();
+                    nearest[sampleI].second().second() = myRank;
                 }
             }
             else
@@ -396,16 +399,14 @@ void Foam::mappedPatchBase::findSamples
                     if (!nearInfo.hit())
                     {
                         nearest[sampleI].second().first() = Foam::sqr(GREAT);
-                        nearest[sampleI].second().second() =
-                            Pstream::myProcNo();
+                        nearest[sampleI].second().second() = myRank;
                     }
                     else
                     {
                         const point& pt = nearInfo.hitPoint();
 
                         nearest[sampleI].second().first() = magSqr(pt-sample);
-                        nearest[sampleI].second().second() =
-                            Pstream::myProcNo();
+                        nearest[sampleI].second().second() = myRank;
                     }
                 }
             }
@@ -434,7 +435,7 @@ void Foam::mappedPatchBase::findSamples
                 if (facei == -1)
                 {
                     nearest[sampleI].second().first() = Foam::sqr(GREAT);
-                    nearest[sampleI].second().second() = Pstream::myProcNo();
+                    nearest[sampleI].second().second() = myRank;
                 }
                 else
                 {
@@ -447,7 +448,7 @@ void Foam::mappedPatchBase::findSamples
                         facei
                     );
                     nearest[sampleI].second().first() = magSqr(fc-sample);
-                    nearest[sampleI].second().second() = Pstream::myProcNo();
+                    nearest[sampleI].second().second() = myRank;
                 }
             }
             break;
@@ -468,8 +469,14 @@ void Foam::mappedPatchBase::findSamples
 
 
     // Find nearest. Combine on master.
-    Pstream::listCombineGather(nearest, nearestEqOp());
-    Pstream::listCombineScatter(nearest);
+    Pstream::listCombineGather
+    (
+        nearest,
+        nearestEqOp(),
+        Pstream::msgType(),
+        comm_
+    );
+    Pstream::listCombineScatter(nearest, Pstream::msgType(), comm_);
 
 
     if (debug)
@@ -591,7 +598,7 @@ void Foam::mappedPatchBase::calcMapping() const
                 nNotFound++;
             }
         }
-        reduce(nNotFound, sumOp<label>());
+        reduce(nNotFound, sumOp<label>(), Pstream::msgType(), comm_);
 
         if (nNotFound > 0)
         {
@@ -665,7 +672,7 @@ void Foam::mappedPatchBase::calcMapping() const
 
 
 
-    if (debug && Pstream::master())
+    if (debug && Pstream::master(comm_))
     {
         OFstream str
         (
@@ -923,6 +930,7 @@ Foam::mappedPatchBase::mappedPatchBase
     offset_(Zero),
     offsets_(pp.size(), offset_),
     distance_(0),
+    comm_(UPstream::worldComm),
     sameRegion_(sampleRegion_ == patch_.boundaryMesh().mesh().name()),
     mapPtr_(nullptr),
     AMIPtr_(nullptr),
@@ -950,6 +958,7 @@ Foam::mappedPatchBase::mappedPatchBase
     offset_(Zero),
     offsets_(offsets),
     distance_(0),
+    comm_(UPstream::worldComm),
     sameRegion_(sampleRegion_ == patch_.boundaryMesh().mesh().name()),
     mapPtr_(nullptr),
     AMIPtr_(nullptr),
@@ -977,6 +986,7 @@ Foam::mappedPatchBase::mappedPatchBase
     offset_(offset),
     offsets_(0),
     distance_(0),
+    comm_(UPstream::worldComm),
     sameRegion_(sampleRegion_ == patch_.boundaryMesh().mesh().name()),
     mapPtr_(nullptr),
     AMIPtr_(nullptr),
@@ -1004,6 +1014,7 @@ Foam::mappedPatchBase::mappedPatchBase
     offset_(Zero),
     offsets_(0),
     distance_(distance),
+    comm_(UPstream::worldComm),
     sameRegion_(sampleRegion_ == patch_.boundaryMesh().mesh().name()),
     mapPtr_(nullptr),
     AMIPtr_(nullptr),
@@ -1028,6 +1039,7 @@ Foam::mappedPatchBase::mappedPatchBase
     offset_(Zero),
     offsets_(0),
     distance_(0.0),
+    comm_(dict.lookupOrDefault<label>("communicator", UPstream::worldComm)),
     sameRegion_(sampleRegion_ == patch_.boundaryMesh().mesh().name()),
     mapPtr_(nullptr),
     AMIPtr_(nullptr),
@@ -1105,6 +1117,7 @@ Foam::mappedPatchBase::mappedPatchBase
     offset_(Zero),
     offsets_(0),
     distance_(0.0),
+    comm_(dict.lookupOrDefault<label>("communicator", UPstream::worldComm)),
     sameRegion_(sampleRegion_ == patch_.boundaryMesh().mesh().name()),
     mapPtr_(nullptr),
     AMIPtr_(nullptr),
@@ -1150,6 +1163,7 @@ Foam::mappedPatchBase::mappedPatchBase
     offset_(mpb.offset_),
     offsets_(mpb.offsets_),
     distance_(mpb.distance_),
+    comm_(mpb.comm_),
     sameRegion_(mpb.sameRegion_),
     mapPtr_(nullptr),
     AMIPtr_(nullptr),
@@ -1180,6 +1194,7 @@ Foam::mappedPatchBase::mappedPatchBase
       : vectorField(0)
     ),
     distance_(mpb.distance_),
+    comm_(mpb.comm_),
     sameRegion_(mpb.sameRegion_),
     mapPtr_(nullptr),
     AMIPtr_(nullptr),
@@ -1373,6 +1388,8 @@ void Foam::mappedPatchBase::write(Ostream& os) const
         os.writeEntry("samplePatch", samplePatch_);
     }
     coupleGroup_.write(os);
+
+    os.writeEntryIfDifferent("communicator", UPstream::worldComm, comm_);
 
     if
     (

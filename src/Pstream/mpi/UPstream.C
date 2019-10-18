@@ -240,6 +240,27 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
         ourMpi = true;
     }
 
+    // Check argument list for local world
+    label localWorldIndex = -1;
+    for (int argi = 1; argi < argc; ++argi)
+    {
+        if (strcmp(argv[argi], "-localWorld") == 0)
+        {
+            localWorldIndex = argi;
+            break;
+        }
+    }
+
+    // Filter localWorld option
+    if (localWorldIndex != -1)
+    {
+        for (label i = localWorldIndex+1; i < argc; i++)
+        {
+            argv[i-1] = argv[i];
+        }
+        argc--;
+    }
+
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
 
@@ -249,7 +270,7 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
             << " rank:" << myRank << endl;
     }
 
-    if (numprocs <= 1)
+    if (localWorldIndex == -1 && numprocs <= 1)
     {
         FatalErrorInFunction
             << "attempt to run parallel on 1 processor"
@@ -258,6 +279,45 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
 
     // Initialise parallel structure
     setParRun(numprocs, provided_thread_support == MPI_THREAD_MULTIPLE);
+
+    if (localWorldIndex != -1)
+    {
+        // Collect all executable names
+        //{
+        //    HashTable<label, fileName, fileName::hash> allExecs(numprocs);
+        //    allExecs.insert(argv[0], 1);
+        //    Pstream::mapCombineGather(allExecs, plusEqOp<label>());
+        //
+        //    // Assign a unique index to each executable name
+        //    label comm = 1;
+        //    for (auto& iter : allExecs)
+        //    {
+        //        iter = comm++;
+        //    }
+        //    Pstream::mapCombineScatter(allExecs);
+        //    DebugVar(allExecs);
+        //}
+
+        wordList allExecs(numprocs);
+        allExecs[Pstream::myProcNo()] = argv[0];
+        Pstream::gatherList(allExecs);
+        Pstream::scatterList(allExecs);
+
+        DynamicList<label> subRanks;
+        forAll(allExecs, proci)
+        {
+            if (allExecs[proci] == allExecs[Pstream::myProcNo()])
+            {
+                subRanks.append(proci);
+            }
+        }
+
+        // Allocate new communicator 1 with parent 0 (= world)
+        const label subComm = allocateCommunicator(0, subRanks, true);
+        // Override worldComm
+        UPstream::worldComm = subComm;
+        UPstream::warnComm = UPstream::worldComm;
+    }
 
     attachOurBuffers();
 
@@ -341,6 +401,7 @@ void Foam::UPstream::exit(int errnum)
         }
         else
         {
+            // Abort only locally or world?
             MPI_Abort(MPI_COMM_WORLD, errnum);
         }
     }

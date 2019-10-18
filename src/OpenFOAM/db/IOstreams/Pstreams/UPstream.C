@@ -90,8 +90,8 @@ void Foam::UPstream::setParRun(const label nProcs, const bool haveThreads)
                 << Foam::exit(FatalError);
         }
 
-        Pout.prefix() = '[' +  name(myProcNo(Pstream::worldComm)) + "] ";
-        Perr.prefix() = '[' +  name(myProcNo(Pstream::worldComm)) + "] ";
+        Pout.prefix() = '[' +  name(myProcNo(comm)) + "] ";
+        Perr.prefix() = '[' +  name(myProcNo(comm)) + "] ";
     }
 }
 

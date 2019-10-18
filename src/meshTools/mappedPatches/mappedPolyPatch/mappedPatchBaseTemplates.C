@@ -69,9 +69,11 @@ void Foam::mappedPatchBase::distribute
                 map().constructMap(),
                 false,
                 lst,
+                Type(Zero),
                 cop,
                 flipOp(),
-                Type(Zero)
+                UPstream::msgType(),
+                comm_
             );
         }
     }
@@ -124,9 +126,11 @@ void Foam::mappedPatchBase::reverseDistribute
                 map().subMap(),
                 false,
                 lst,
+                Type(Zero),
                 cop,
                 flipOp(),
-                Type(Zero)
+                UPstream::msgType(),
+                comm_
             );
             break;
         }

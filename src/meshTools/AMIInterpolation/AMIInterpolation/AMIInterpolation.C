@@ -985,9 +985,10 @@ void Foam::AMIInterpolation<SourcePatch, TargetPatch>::update
             map.subMap(),
             false,                      // has flip
             tgtAddress_,
+            labelList(),
             ListOps::appendEqOp<label>(),
             flipOp(),                   // flip operation
-            labelList()
+            UPstream::worldComm         //TBD
         );
 
         mapDistributeBase::distribute
@@ -1000,9 +1001,10 @@ void Foam::AMIInterpolation<SourcePatch, TargetPatch>::update
             map.subMap(),
             false,
             tgtWeights_,
+            scalarList(),
             ListOps::appendEqOp<scalar>(),
-            flipOp(),
-            scalarList()
+            flipOp(),                   // flip operation
+            UPstream::worldComm         //TBD
         );
 
         // weights normalisation

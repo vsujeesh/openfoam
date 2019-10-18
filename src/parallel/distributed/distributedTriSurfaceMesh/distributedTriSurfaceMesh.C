@@ -1397,9 +1397,11 @@ void Foam::distributedTriSurfaceMesh::surfaceSide
         map.subMap(),
         map.subHasFlip(),
         volType,
+        zero,
         volumeCombineOp(),
         noOp(),           // no flipping
-        zero
+        UPstream::msgType(),
+        map.comm()
     );
 
     if (debug)
@@ -3217,9 +3219,11 @@ void Foam::distributedTriSurfaceMesh::findNearest
         map1.subMap(),
         map1.subHasFlip(),
         nearestInfo,
+        nearestZero,
         nearestEqOp(),
         noOp(),             // no flipping
-        nearestZero
+        UPstream::msgType(),
+        map1.comm()
     );
 
 
@@ -3375,9 +3379,11 @@ void Foam::distributedTriSurfaceMesh::findNearest
         map2.subMap(),
         map2.subHasFlip(),
         localBest,
+        nearestZero,
         nearestEqOp(),
         noOp(),             // no flipping
-        nearestZero
+        UPstream::msgType(),
+        map2.comm()
     );
 
     // Combine with nearestInfo
@@ -4207,9 +4213,11 @@ void Foam::distributedTriSurfaceMesh::getVolumeType
         map.subMap(),
         map.subHasFlip(),
         volType,
+        zero,
         volumeCombineOp(),
         noOp(),           // no flipping
-        zero
+        UPstream::msgType(),
+        map.comm()
     );
 
 

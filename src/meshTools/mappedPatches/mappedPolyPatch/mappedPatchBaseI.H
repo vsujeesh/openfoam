@@ -137,6 +137,12 @@ inline const Foam::vectorField& Foam::mappedPatchBase::offsets() const
 }
 
 
+inline Foam::label Foam::mappedPatchBase::comm() const
+{
+    return comm_;
+}
+
+
 inline bool Foam::mappedPatchBase::sameRegion() const
 {
     return sameRegion_;

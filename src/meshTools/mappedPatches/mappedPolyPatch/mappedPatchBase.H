@@ -215,6 +215,9 @@ protected:
         //- Offset distance (normal)
         scalar distance_;
 
+        //- Communicator
+        label comm_;
+
         //- Same region
         mutable bool sameRegion_;
 
@@ -379,6 +382,9 @@ public:
 
             //- Offset vector (from patch faces to destination mesh objects)
             inline const vectorField& offsets() const;
+
+            //- Communicator
+            inline label comm() const;
 
             //- Cached sampleRegion != mesh.name()
             inline bool sameRegion() const;
