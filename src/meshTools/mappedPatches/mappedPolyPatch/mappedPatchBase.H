@@ -32,6 +32,9 @@ Description
 
     If constructed from dictionary:
     \verbatim
+        // World to sample (default is all)
+        sampleWorld all;
+
         // Region to sample (default is region0)
         sampleRegion region0;
 
@@ -191,6 +194,9 @@ protected:
         //- Patch to sample
         const polyPatch& patch_;
 
+        //- World to sample
+        mutable word sampleWorld_;
+
         //- Region to sample
         mutable word sampleRegion_;
 
@@ -217,6 +223,9 @@ protected:
 
         //- Communicator
         label comm_;
+
+//        //- Inter-world communicator
+//        label interComm_;
 
         //- Same region
         mutable bool sameRegion_;
@@ -249,6 +258,13 @@ protected:
 
     // Protected Member Functions
 
+        //- Optionally allocate communicator
+        static label communicator
+        (
+            const word& myWorld,
+            const word& sampleWorld
+        );
+
         //- Get the points from face-centre-decomposition face centres
         //  and project them onto the face-diagonal-decomposition triangles.
         tmp<pointField> facePoints(const polyPatch&) const;
@@ -256,6 +272,7 @@ protected:
         //- Collect single list of samples and originating processor+face.
         void collectSamples
         (
+            const label comm,
             const pointField& facePoints,
             pointField&,
             labelList& patchFaceProcs,
@@ -263,7 +280,15 @@ protected:
             pointField& patchFc
         ) const;
 
-        //- Find cells/faces containing samples
+        //- Find (local) cells/faces containing samples
+        void findLocalSamples
+        (
+            const sampleMode mode,
+            const pointField& samples,
+            List<nearInfo>& nearest
+        ) const;
+
+        //- Find (global) cells/faces containing samples
         void findSamples
         (
             const sampleMode mode,      // search mode
@@ -364,6 +389,9 @@ public:
 
             //- What to sample
             inline const sampleMode& mode() const;
+
+            //- World to sample
+            inline const word& sampleWorld() const;
 
             //- Region to sample
             inline const word& sampleRegion() const;

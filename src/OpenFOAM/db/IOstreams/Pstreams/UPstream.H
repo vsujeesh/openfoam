@@ -191,6 +191,9 @@ private:
         //- Standard transfer message type
         static int msgType_;
 
+        //- Names of worlds
+        static wordList worlds_;
+
         // Communicator specific data
 
         //- Free communicators
@@ -456,6 +459,18 @@ public:
         static List<int>& procID(label communicator)
         {
             return procIDs_[communicator];
+        }
+
+        //- world of all processes
+        static const wordList& worlds()
+        {
+            return worlds_;
+        }
+
+        //- My world
+        static const word& myWorld()
+        {
+            return worlds_[myProcNo(0)];
         }
 
         //- Process index of first slave

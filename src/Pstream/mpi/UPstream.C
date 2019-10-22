@@ -242,11 +242,26 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
 
     // Check argument list for local world
     label localWorldIndex = -1;
+    label worldIndex = -1;
+    word world;
     for (int argi = 1; argi < argc; ++argi)
     {
         if (strcmp(argv[argi], "-localWorld") == 0)
         {
             localWorldIndex = argi;
+            break;
+        }
+
+        if (strcmp(argv[argi], "-world") == 0)
+        {
+            worldIndex = argi++;
+            if (argi >= argc)
+            {
+                FatalErrorInFunction
+                    << "Missing world name to argument \"world\""
+                    << Foam::abort(FatalError);
+            }
+            world = argv[argi];
             break;
         }
     }
@@ -260,6 +275,14 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
         }
         argc--;
     }
+    if (worldIndex != -1)
+    {
+        for (label i = worldIndex+2; i < argc; i++)
+        {
+            argv[i-2] = argv[i];
+        }
+        argc -= 2;
+    }
 
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
@@ -270,7 +293,7 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
             << " rank:" << myRank << endl;
     }
 
-    if (localWorldIndex == -1 && numprocs <= 1)
+    if (localWorldIndex == -1 && worldIndex == -1 && numprocs <= 1)
     {
         FatalErrorInFunction
             << "attempt to run parallel on 1 processor"
@@ -316,7 +339,37 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
         const label subComm = allocateCommunicator(0, subRanks, true);
         // Override worldComm
         UPstream::worldComm = subComm;
+        // For testing: warn use of non-worldComm
         UPstream::warnComm = UPstream::worldComm;
+        // Override Pout prefix (move to setParRun?)
+        Pout.prefix() = "[0/" +  name(myProcNo(subComm)) + "] ";
+        Perr.prefix() = "[0/" +  name(myProcNo(subComm)) + "] ";
+    }
+    if (worldIndex != -1)
+    {
+        worlds_.setSize(numprocs);
+        worlds_[Pstream::myProcNo()] = world;
+        Pstream::gatherList(worlds_);
+        Pstream::scatterList(worlds_);
+
+        DynamicList<label> subRanks;
+        forAll(worlds_, proci)
+        {
+            if (worlds_[proci] == worlds_[Pstream::myProcNo()])
+            {
+                subRanks.append(proci);
+            }
+        }
+
+        // Allocate new communicator 1 with parent 0 (= mpi_world)
+        const label subComm = allocateCommunicator(0, subRanks, true);
+        // Override worldComm
+        UPstream::worldComm = subComm;
+        // For testing: warn use of non-worldComm
+        UPstream::warnComm = UPstream::worldComm;
+        // Override Pout prefix (move to setParRun?)
+        Pout.prefix() = '[' + world + '/' +  name(myProcNo(subComm)) + "] ";
+        Perr.prefix() = '[' + world + '/' +  name(myProcNo(subComm)) + "] ";
     }
 
     attachOurBuffers();

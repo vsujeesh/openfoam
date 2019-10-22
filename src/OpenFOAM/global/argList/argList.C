@@ -178,6 +178,20 @@ Foam::argList::initValidTables::initValidTables()
         "Use application-local communicator for default communication"
     );
 
+    argList::addOption
+    (
+        "world",
+        "Name",
+        "Name of local world",
+        true
+    );
+    validParOptions.set
+    (
+        "world",
+        "Name of local world"
+    );
+
+
     // Some standard option aliases (with or without version warnings)
 //     argList::addOptionCompat
 //     (
@@ -496,6 +510,7 @@ void Foam::argList::noParallel()
     removeOption("decomposeParDict");
     removeOption("hostRoots");
     removeOption("localWorld");
+    removeOption("world");
     validParOptions.clear();
 }
 
