@@ -1,0 +1,15 @@
+#!/bin/sh
+cd ${0%/*} || exit 1                        # Run from this directory
+. $WM_PROJECT_DIR/bin/tools/RunFunctions    # Tutorial run functions
+
+(cd left && runApplication blockMesh)
+(cd left && runApplication decomposePar)
+#(cd left && runParallel laplacianFoam -world LEFT)
+
+(cd right && runApplication blockMesh)
+(cd right && runApplication decomposePar)
+#(cd right && runParallel laplacianFoam -world RIGHT)
+
+mpirun -app ./mpirun.schema
+
+#------------------------------------------------------------------------------

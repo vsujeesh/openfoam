@@ -167,16 +167,16 @@ Foam::argList::initValidTables::initValidTables()
         true  // advanced option
     );
 
-    argList::addBoolOption
-    (
-        "localWorld",
-        "Use application-local communicator for default communication"
-    );
-    validParOptions.set
-    (
-        "localWorld",
-        "Use application-local communicator for default communication"
-    );
+//    argList::addBoolOption
+//    (
+//        "localWorld",
+//        "Use application-local communicator for default communication"
+//    );
+//    validParOptions.set
+//    (
+//        "localWorld",
+//        "Use application-local communicator for default communication"
+//    );
 
     argList::addOption
     (
@@ -509,7 +509,7 @@ void Foam::argList::noParallel()
     removeOption("roots");
     removeOption("decomposeParDict");
     removeOption("hostRoots");
-    removeOption("localWorld");
+//    removeOption("localWorld");
     removeOption("world");
     validParOptions.clear();
 }
