@@ -32,8 +32,8 @@ Description
 
     If constructed from dictionary:
     \verbatim
-        // World to sample (default is all)
-        sampleWorld all;
+        // Optional world to sample (default is all)
+        //sampleWorld solidSim;
 
         // Region to sample (default is region0)
         sampleRegion region0;
@@ -321,6 +321,17 @@ public:
     //- Runtime type information
     TypeName("mappedPatchBase");
 
+
+static const polyPatch& getPatch
+(
+    const polyPatch& pp,
+    const dictionary& dict
+)
+{
+Pout<< "For patch:" << pp.name()
+    << " have dictionary:" << dict << endl;
+    return pp;
+}
 
     // Constructors
 

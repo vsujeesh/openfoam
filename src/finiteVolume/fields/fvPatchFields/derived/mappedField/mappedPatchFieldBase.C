@@ -190,7 +190,8 @@ Foam::mappedPatchFieldBase<Type>::mappedField() const
     UPstream::msgType() = oldTag + 1;
 
     const fvMesh& thisMesh = patchField_.patch().boundaryMesh().mesh();
-    const fvMesh& nbrMesh = refCast<const fvMesh>(mapper_.sampleMesh());
+
+    const bool isSampleWorld(UPstream::myWorld() == mapper_.sampleWorld());
 
     // Result of obtaining remote values
     auto tnewValues = tmp<Field<Type>>::New();
@@ -204,42 +205,56 @@ Foam::mappedPatchFieldBase<Type>::mappedField() const
 
             if (interpolationScheme_ != interpolationCell<Type>::typeName)
             {
+                const fvMesh& nbrMesh =
+                    refCast<const fvMesh>(mapper_.sampleMesh());
+
                 // Send back sample points to the processor that holds the cell
                 vectorField samples(mapper_.samplePoints());
-                distMap.reverseDistribute
-                (
+
+                label nRemoteCells = 0;
+                if (isSampleWorld)
+                {
+                    nRemoteCells = 
                     (
                         mapper_.sameRegion()
                       ? thisMesh.nCells()
                       : nbrMesh.nCells()
-                    ),
+                    );
+                }
+
+                distMap.reverseDistribute
+                (
+                    nRemoteCells,
                     point::max,
                     samples
                 );
 
-                auto interpolator =
-                    interpolation<Type>::New
-                    (
-                        interpolationScheme_,
-                        sampleField()
-                    );
-
-                const auto& interp = *interpolator;
-
-                newValues.setSize(samples.size(), pTraits<Type>::max);
-                forAll(samples, celli)
+                if (isSampleWorld)
                 {
-                    if (samples[celli] != point::max)
-                    {
-                        newValues[celli] = interp.interpolate
+                    auto interpolator =
+                        interpolation<Type>::New
                         (
-                            samples[celli],
-                            celli
+                            interpolationScheme_,
+                            sampleField()
                         );
+
+                    const auto& interp = *interpolator;
+
+                    newValues.setSize(samples.size(), pTraits<Type>::max);
+                    forAll(samples, celli)
+                    {
+                        if (samples[celli] != point::max)
+                        {
+                            newValues[celli] = interp.interpolate
+                            (
+                                samples[celli],
+                                celli
+                            );
+                        }
                     }
                 }
             }
-            else
+            else if (isSampleWorld)
             {
                 newValues = sampleField();
             }
@@ -251,38 +266,51 @@ Foam::mappedPatchFieldBase<Type>::mappedField() const
         case mappedPatchBase::NEARESTPATCHFACE:
         case mappedPatchBase::NEARESTPATCHFACEAMI:
         {
-            const label nbrPatchID =
-                nbrMesh.boundaryMesh().findPatchID(mapper_.samplePatch());
-
-            if (nbrPatchID < 0)
+            if (isSampleWorld)
             {
-                FatalErrorInFunction
-                 << "Unable to find sample patch " << mapper_.samplePatch()
-                 << " in region " << mapper_.sampleRegion()
-                 << " for patch " << patchField_.patch().name() << nl
-                 << abort(FatalError);
+                const fvMesh& nbrMesh =
+                    refCast<const fvMesh>(mapper_.sampleMesh());
+
+                const label nbrPatchID =
+                    nbrMesh.boundaryMesh().findPatchID(mapper_.samplePatch());
+
+                if (nbrPatchID < 0)
+                {
+                    FatalErrorInFunction
+                     << "Unable to find sample patch " << mapper_.samplePatch()
+                     << " in region " << mapper_.sampleRegion()
+                     << " for patch " << patchField_.patch().name() << nl
+                     << abort(FatalError);
+                }
+
+                const fieldType& nbrField = sampleField();
+
+                newValues = nbrField.boundaryField()[nbrPatchID];
             }
-
-            const fieldType& nbrField = sampleField();
-
-            newValues = nbrField.boundaryField()[nbrPatchID];
             mapper_.distribute(newValues);
 
             break;
         }
         case mappedPatchBase::NEARESTFACE:
         {
-            Field<Type> allValues(nbrMesh.nFaces(), Zero);
-
-            const fieldType& nbrField = sampleField();
-
-            for (const fvPatchField<Type>& pf : nbrField.boundaryField())
+            Field<Type> allValues;
+            if (isSampleWorld)
             {
-                label faceStart = pf.patch().start();
+                const fvMesh& nbrMesh =
+                    refCast<const fvMesh>(mapper_.sampleMesh());
 
-                forAll(pf, facei)
+                allValues.setSize(nbrMesh.nFaces(), Zero);
+
+                const fieldType& nbrField = sampleField();
+
+                for (const fvPatchField<Type>& pf : nbrField.boundaryField())
                 {
-                    allValues[faceStart++] = pf[facei];
+                    label faceStart = pf.patch().start();
+
+                    forAll(pf, facei)
+                    {
+                        allValues[faceStart++] = pf[facei];
+                    }
                 }
             }
 

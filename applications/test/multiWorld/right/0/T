@@ -32,8 +32,26 @@ boundaryField
 
     left
     {
-        type            fixedValue;
-        value           uniform 0.5;
+//        type            fixedValue;
+//        value           uniform 0.5;
+
+
+        type            mappedField;
+
+        // Simulation world to sample
+        sampleWorld     LEFT;
+
+        // What to sample:
+        sampleMode      nearestPatchFace;
+
+        // If sampleMode is nearestPatchFace : patch to find faces of
+        samplePatch     right;
+
+        // According to offsetMode (see above) supply one of
+        // offset, offsets or distance
+        offset          (0 0 0);
+
+        value           uniform 0.0;
     }
 
     right
