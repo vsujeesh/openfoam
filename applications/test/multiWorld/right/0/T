@@ -20,6 +20,33 @@ internalField   uniform 0;
 
 boundaryField
 {
+    coupled
+    {
+//        type            fixedValue;
+//        value           uniform 0.5;
+
+
+        type            mappedField;
+
+        // What to sample:
+        sampleMode      nearestPatchFace;
+
+        // Simulation world to sample
+        sampleWorld     LEFT;
+
+        // Region to sample
+        sampleRegion    region0;
+
+        // If sampleMode is nearestPatchFace : patch to find faces of
+        samplePatch     coupled;
+
+        // According to offsetMode (see above) supply one of
+        // offset, offsets or distance
+        offset          (0 0 0);
+
+        value           uniform 0.0;
+    }
+
     top
     {
         type            zeroGradient;
@@ -28,30 +55,6 @@ boundaryField
     bottom
     {
         type            zeroGradient;
-    }
-
-    left
-    {
-//        type            fixedValue;
-//        value           uniform 0.5;
-
-
-        type            mappedField;
-
-        // Simulation world to sample
-        sampleWorld     LEFT;
-
-        // What to sample:
-        sampleMode      nearestPatchFace;
-
-        // If sampleMode is nearestPatchFace : patch to find faces of
-        samplePatch     right;
-
-        // According to offsetMode (see above) supply one of
-        // offset, offsets or distance
-        offset          (0 0 0);
-
-        value           uniform 0.0;
     }
 
     right

@@ -187,6 +187,45 @@ public:
     };
 
 
+//XXXXX
+    //- Helper class for finding nearest
+    //  Nearest:
+    //  - point+local index
+    //  - sqr(distance)
+    //  - processor
+    //  - world
+    typedef Tuple2<nearInfo, label> nearInfoWorld;
+
+    class nearestWorldEqOp
+    {
+
+    public:
+
+        void operator()(nearInfoWorld& x, const nearInfoWorld& y) const
+        {
+            // Is there a hit and is it sampling the same world
+            const nearInfo& xi = x.first();
+            const nearInfo& yi = y.first();
+            if (yi.first().hit())
+            {
+Pout<< "Combining xi:" << xi << " and yi:" << yi << endl;
+                if (x.second() == y.second())
+                {
+                    if (!xi.first().hit())
+                    {
+                        x = y;
+                    }
+                    else if (yi.second().first() < xi.second().first())
+                    {
+                        x = y;
+                    }
+                }
+            }
+        }
+    };
+//XXXXX
+
+
 protected:
 
     // Protected data
@@ -265,18 +304,31 @@ protected:
             const word& sampleWorld
         );
 
+        //- Lookup mesh
+        const polyMesh& lookupMesh(const word& region) const;
+
+        //- Lookup patch
+        const polyPatch& lookupPatch
+        (
+            const word& sampleRegion,
+            const word& samplePatch
+        ) const;
+
+
         //- Get the points from face-centre-decomposition face centres
         //  and project them onto the face-diagonal-decomposition triangles.
         tmp<pointField> facePoints(const polyPatch&) const;
 
-        //- Collect single list of samples and originating processor+face.
+        //- Collect single list of samples and originating processor+face + 
+        //  wanted world
         void collectSamples
         (
-            const label comm,
+            const label mySampleWorld,  // My wanted sampling world
             const pointField& facePoints,
-            pointField&,
-            labelList& patchFaceProcs,
-            labelList& patchFaces,
+            pointField& samples,        // Per sample: coordinate
+            labelList& patchFaceWorlds, // Per sample: wanted world
+            labelList& patchFaceProcs,  // Per sample: originating proc
+            labelList& patchFaces,      // Per sample: originating face
             pointField& patchFc
         ) const;
 
@@ -284,15 +336,24 @@ protected:
         void findLocalSamples
         (
             const sampleMode mode,
-            const pointField& samples,
-            List<nearInfo>& nearest
+            const label sampleWorld,        // my world as index
+            const word& sampleRegion,
+            const word& samplePatch,
+            const pointField& samplePoints,
+
+            List<nearInfoWorld>& nearest
         ) const;
 
         //- Find (global) cells/faces containing samples
         void findSamples
         (
             const sampleMode mode,      // search mode
+            const label myWorldIndex,   // my world (in index form)
+
             const pointField&,
+            const labelList& wantedWorlds,
+            const labelList& origProcs, // per sample the originating proc
+
             labelList& sampleProcs,     // processor containing sample
             labelList& sampleIndices,   // local index of cell/face
             pointField& sampleLocations // actual representative location
