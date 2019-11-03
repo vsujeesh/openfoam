@@ -187,13 +187,8 @@ public:
     };
 
 
-//XXXXX
-    //- Helper class for finding nearest
-    //  Nearest:
-    //  - point+local index
-    //  - sqr(distance)
-    //  - processor
-    //  - world
+    //- nearest + world
+    //  Used to only look at entries from same world
     typedef Tuple2<nearInfo, label> nearInfoWorld;
 
     class nearestWorldEqOp
@@ -208,7 +203,6 @@ public:
             const nearInfo& yi = y.first();
             if (yi.first().hit())
             {
-Pout<< "Combining xi:" << xi << " and yi:" << yi << endl;
                 if (x.second() == y.second())
                 {
                     if (!xi.first().hit())
@@ -223,7 +217,6 @@ Pout<< "Combining xi:" << xi << " and yi:" << yi << endl;
             }
         }
     };
-//XXXXX
 
 
 protected:
@@ -262,9 +255,6 @@ protected:
 
         //- Communicator
         label comm_;
-
-//        //- Inter-world communicator
-//        label interComm_;
 
         //- Same region
         mutable bool sameRegion_;
@@ -382,17 +372,6 @@ public:
     //- Runtime type information
     TypeName("mappedPatchBase");
 
-
-static const polyPatch& getPatch
-(
-    const polyPatch& pp,
-    const dictionary& dict
-)
-{
-Pout<< "For patch:" << pp.name()
-    << " have dictionary:" << dict << endl;
-    return pp;
-}
 
     // Constructors
 

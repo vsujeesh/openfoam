@@ -37,7 +37,10 @@ void Foam::mappedPatchBase::distribute(List<Type>& lst) const
         }
         default:
         {
+            const label oldComm(Pstream::warnComm);
+            Pstream::warnComm = map().comm();
             map().distribute(lst);
+            Pstream::warnComm = oldComm;
         }
     }
 }
@@ -59,6 +62,8 @@ void Foam::mappedPatchBase::distribute
         }
         default:
         {
+            const label oldComm(Pstream::warnComm);
+            Pstream::warnComm = comm_;
             mapDistributeBase::distribute
             (
                 Pstream::defaultCommsType,
@@ -75,6 +80,7 @@ void Foam::mappedPatchBase::distribute
                 UPstream::msgType(),
                 comm_
             );
+            Pstream::warnComm = oldComm;
         }
     }
 }
@@ -92,7 +98,10 @@ void Foam::mappedPatchBase::reverseDistribute(List<Type>& lst) const
         }
         default:
         {
+            const label oldComm(Pstream::warnComm);
+            Pstream::warnComm = map().comm();
             map().reverseDistribute(sampleSize(), lst);
+            Pstream::warnComm = oldComm;
             break;
         }
     }
@@ -115,6 +124,9 @@ void Foam::mappedPatchBase::reverseDistribute
         }
         default:
         {
+            const label oldComm(Pstream::warnComm);
+            Pstream::warnComm = map().comm();
+
             label cSize = sampleSize();
             mapDistributeBase::distribute
             (
@@ -132,6 +144,7 @@ void Foam::mappedPatchBase::reverseDistribute
                 UPstream::msgType(),
                 comm_
             );
+            Pstream::warnComm = oldComm;
             break;
         }
     }

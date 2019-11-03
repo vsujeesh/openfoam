@@ -191,7 +191,9 @@ Foam::mappedPatchFieldBase<Type>::mappedField() const
 
     const fvMesh& thisMesh = patchField_.patch().boundaryMesh().mesh();
 
-    const bool isSampleWorld(UPstream::myWorld() == mapper_.sampleWorld());
+//    const bool isSampleWorld(UPstream::myWorld() == mapper_.sampleWorld());
+    const bool isSampleWorld = true;
+DebugVar(isSampleWorld);
 
     // Result of obtaining remote values
     auto tnewValues = tmp<Field<Type>>::New();
@@ -266,13 +268,19 @@ Foam::mappedPatchFieldBase<Type>::mappedField() const
         case mappedPatchBase::NEARESTPATCHFACE:
         case mappedPatchBase::NEARESTPATCHFACEAMI:
         {
+Pout<< "*** HERE ***" << endl;
+            const mapDistribute& distMap = mapper_.map();
             if (isSampleWorld)
             {
                 const fvMesh& nbrMesh =
                     refCast<const fvMesh>(mapper_.sampleMesh());
 
+DebugVar(mapper_.sampleRegion());
+
                 const label nbrPatchID =
                     nbrMesh.boundaryMesh().findPatchID(mapper_.samplePatch());
+
+DebugVar(nbrPatchID);
 
                 if (nbrPatchID < 0)
                 {
@@ -285,8 +293,12 @@ Foam::mappedPatchFieldBase<Type>::mappedField() const
 
                 const fieldType& nbrField = sampleField();
 
+DebugVar(nbrField.name());
+
                 newValues = nbrField.boundaryField()[nbrPatchID];
             }
+DebugVar(newValues.size());
+DebugVar(distMap.comm());
             mapper_.distribute(newValues);
 
             break;

@@ -15,6 +15,12 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+DebugSwitches
+{
+    mappedPatchBase 1;
+}
+
+
 application     laplacianFoam;
 
 startFrom       startTime;  //latestTime;
