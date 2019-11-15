@@ -156,7 +156,21 @@ public:
     // Member Functions
 
         //- Field to sample. Either on my or nbr mesh
+        template<class T>
+        const GeometricField<T, fvPatchField, volMesh>& sampleField
+        (
+            const word& fieldName
+        ) const;
+
+        //- Field to sample. Either on my or nbr mesh
         const GeometricField<Type, fvPatchField, volMesh>& sampleField() const;
+
+        //- Map given volField onto *this patch
+        template<class T>
+        tmp<Field<T>> mappedField
+        (
+            const GeometricField<T, fvPatchField, volMesh>& fld
+        ) const;
 
         //- Map sampleField onto *this patch
         virtual tmp<Field<Type>> mappedField() const;

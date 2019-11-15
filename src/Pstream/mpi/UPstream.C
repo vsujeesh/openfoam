@@ -241,17 +241,10 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
     }
 
     // Check argument list for local world
-//    label localWorldIndex = -1;
     label worldIndex = -1;
     word world;
     for (int argi = 1; argi < argc; ++argi)
     {
-//        if (strcmp(argv[argi], "-localWorld") == 0)
-//        {
-//            localWorldIndex = argi;
-//            break;
-//        }
-
         if (strcmp(argv[argi], "-world") == 0)
         {
             worldIndex = argi++;
@@ -266,15 +259,7 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
         }
     }
 
-//    // Filter localWorld option
-//    if (localWorldIndex != -1)
-//    {
-//        for (label i = localWorldIndex+1; i < argc; i++)
-//        {
-//            argv[i-1] = argv[i];
-//        }
-//        argc--;
-//    }
+    // Filter 'world' option
     if (worldIndex != -1)
     {
         for (label i = worldIndex+2; i < argc; i++)
@@ -293,7 +278,6 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
             << " rank:" << myRank << endl;
     }
 
-//    if (localWorldIndex == -1 && worldIndex == -1 && numprocs <= 1)
     if (worldIndex == -1 && numprocs <= 1)
     {
         FatalErrorInFunction
@@ -304,48 +288,6 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
     // Initialise parallel structure
     setParRun(numprocs, provided_thread_support == MPI_THREAD_MULTIPLE);
 
-//    if (localWorldIndex != -1)
-//    {
-//        // Collect all executable names
-//        //{
-//        //    HashTable<label, fileName, fileName::hash> allExecs(numprocs);
-//        //    allExecs.insert(argv[0], 1);
-//        //    Pstream::mapCombineGather(allExecs, plusEqOp<label>());
-//        //
-//        //    // Assign a unique index to each executable name
-//        //    label comm = 1;
-//        //    for (auto& iter : allExecs)
-//        //    {
-//        //        iter = comm++;
-//        //    }
-//        //    Pstream::mapCombineScatter(allExecs);
-//        //    DebugVar(allExecs);
-//        //}
-//
-//        wordList allExecs(numprocs);
-//        allExecs[Pstream::myProcNo()] = argv[0];
-//        Pstream::gatherList(allExecs);
-//        Pstream::scatterList(allExecs);
-//
-//        DynamicList<label> subRanks;
-//        forAll(allExecs, proci)
-//        {
-//            if (allExecs[proci] == allExecs[Pstream::myProcNo()])
-//            {
-//                subRanks.append(proci);
-//            }
-//        }
-//
-//        // Allocate new communicator 1 with parent 0 (= world)
-//        const label subComm = allocateCommunicator(0, subRanks, true);
-//        // Override worldComm
-//        UPstream::worldComm = subComm;
-//        // For testing: warn use of non-worldComm
-//        UPstream::warnComm = UPstream::worldComm;
-//        // Override Pout prefix (move to setParRun?)
-//        Pout.prefix() = "[0/" +  name(myProcNo(subComm)) + "] ";
-//        Perr.prefix() = "[0/" +  name(myProcNo(subComm)) + "] ";
-//    }
     if (worldIndex != -1)
     {
         worlds_.setSize(numprocs);

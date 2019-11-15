@@ -224,6 +224,7 @@ $(derivedFvPatchFields)/interfaceCompression/interfaceCompressionFvPatchScalarFi
 $(derivedFvPatchFields)/swirlFanVelocity/swirlFanVelocityFvPatchField.C
 
 $(derivedFvPatchFields)/mappedField/Sampled/makeSampledPatchFunction1s.C
+$(derivedFvPatchFields)/mappedField/mappedMixedFvPatchField/mappedMixedFvPatchFields.C
 
 
 fvsPatchFields = fields/fvsPatchFields

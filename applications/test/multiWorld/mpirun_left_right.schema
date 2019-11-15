@@ -1,0 +1,2 @@
+-np 1 xterm -font fixed -title processor0 -geometry 200x15+0+0 -e /home/mattijs/OpenFOAM/OpenFOAM-plus.feature-localWorld/applications/test/multiWorld/run_left.sh
+-np 1 xterm -font fixed -title processor1 -geometry 200x15+0+200 -e /home/mattijs/OpenFOAM/OpenFOAM-plus.feature-localWorld/applications/test/multiWorld/run_right.sh

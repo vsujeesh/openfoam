@@ -22,7 +22,8 @@ boundaryField
 {
     coupled
     {
-        type            mappedField;
+        //type            mappedField;
+        type            mappedMixed;
 
         // What to sample:
         sampleMode      nearestPatchFace;
@@ -41,6 +42,13 @@ boundaryField
         offset          (0 0 0);
 
         value           uniform 0.0;
+
+
+        // For mappedMixed
+        weightField     DTV;
+        refValue        $value;
+        refGradient     uniform 0.0;
+        valueFraction   uniform 1.0;
     }
 
     top
