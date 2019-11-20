@@ -33,36 +33,102 @@ Group
 Description
     The class \c nutWallFunction is a base class that parents the derived
     boundary conditions which provide a wall constraint on various fields, such
-    as turbulence kinematic viscosity, i.e. \c nut, for low- and high-Reynolds
-    number turbulence models.
+    as turbulent viscosity, i.e. \c nut, or turbulent kinetic energy dissipation
+    rate, i.e. \c epsilon, for low- and high-Reynolds number turbulence models.
 
     Reference:
     \verbatim
-        Default model coefficients:
+        Default model coefficients (tag:VM):
             Versteeg, H. K., & Malalasekera, W. (2011).
-            An introduction to computational fluid dynamics: the finite
+            An introduction to computational fluid dynamics: The finite
             volume method. Harlow: Pearson Education.
             Subsection "3.5.2 k-epsilon model".
+
+        Binomial blending of the viscous and inertial sublayers (tag:ME):
+            Menter, F., & Esch, T. (2001).
+            Elements of industrial heat transfer prediction.
+            In Proceedings of the 16th Brazilian Congress of Mechanical
+            Engineering (COBEM), November 2001. vol. 20, p. 117-127.
+
+        Exponential/Max blending of the viscous and inertial sublayers (tag:PH):
+            Popovac, M., & Hanjalić, K. (2007).
+            Compound wall treatment for RANS computation of complex
+            turbulent flows and heat transfer.
+            Flow, turbulence and combustion, 78(2), 177-202.
+            DOI:10.1007/s10494-006-9067-x
     \endverbatim
 
 Usage
     \table
-        Property  | Description         | Required   | Default value
-        Cmu       | Cmu coefficient     | no         | 0.09
-        kappa     | Von Karman constant | no         | 0.41
-        E         | E coefficient       | no         | 9.8
+        Property  | Description                    | Required  | Default value
+        Cmu       | Empirical model coefficient    | no        | 0.09
+        kappa     | von Kármán constant            | no        | 0.41
+        E         | Wall roughness parameter       | no        | 9.8
+        blending  | Viscous/inertial sublayer blending | no    | stepwise
+        n         | Binomial blending exponent     | no        | 2.0
     \endtable
 
-    Examples of the boundary condition specification:
-    \verbatim
-    <patchName>
-    {
-        // Mandatory entries
-        type            nutWallFunction;
 
-        // Optional entries
-    }
-    \endverbatim
+    Viscous and inertial sublayer predictions for \c nut can be blended
+    by the following treatments:
+
+      - \c stepwise (default):
+
+        \f[
+            if (y^+ > y^+_{lam})
+            {
+                \nu_t = {\nu_t}_{log}
+            }
+            else
+            {
+                \nu_t = {\nu_t}_{vis}
+            }
+        \f]
+        where
+        \vartable
+            {\nu_t}_{vis} | nut prediction in the viscous sublayer
+            {\nu_t}_{log} | nut prediction in the inertial sublayer
+            y^+           | estimated wall-normal height of the relevant
+                            cell centre in wall units
+            y^+_{lam}     | estimated intersection of the viscous and
+                            inertial sublayers inside the buffer layer
+                            in wall units
+        \endvartable
+
+
+      - \c max (PH:Eq. 27):
+
+        \f[
+            \nu_t = max({\nu_t}_{vis}, {\nu_t}_{log})
+        \f]
+
+
+      - \c binomial (ME:Eqs. 15-16):
+
+        \f[
+            \nu_t = ({\nu_t}_{vis}^n + {\nu_t}_{log}^n)^{1/n}
+        \f]
+        where
+        \vartable
+            n | binomial blending exponent
+        \endvartable
+
+
+      - \c exponential (PH:Eq. 32):
+
+        \f[
+            \nu_t = {\nu_t}_{vis} \exp[-\Gamma]
+                  + {\nu_t}_{log} \exp[-1/\Gamma]
+        \f]
+        where (PH:Eq. 31)
+        \vartable
+            \Gamma       | blending expression
+            \Gamma       | 0.01 (y^+)^4 / (1.0 + 5.0 y^+)
+        \endvartable
+
+Note
+    \c nutWallFunction is not directly usable, hence
+    no example of the boundary condition specification.
 
 See also
     Foam::fixedValueFvPatchField
@@ -94,23 +160,46 @@ class nutWallFunctionFvPatchScalarField
 {
 protected:
 
+    // Protected Enumerations
+
+        //- Options for the blending treatment of viscous and inertial sublayers
+        enum blendingType
+        {
+            STEPWISE,       //!< "Stepwise switch (discontinuous)"
+            MAX,            //!< "Maximum value switch (discontinuous)"
+            BINOMIAL,       //!< "Binomial blending (smooth)"
+            EXPONENTIAL     //!< "Exponential blending (smooth)"
+        };
+
+        //- Names for blendingType
+        static const Enum<blendingType> blendingTypeNames;
+
+
     // Protected Data
+
+        //- Blending treatment (default = blendingType::STEPWISE)
+        const enum blendingType blending_;
+
+        //- Binomial blending exponent being used when
+        //- blendingType is blendingType::BINOMIAL (default = 4)
+        const scalar n_;
 
         //- Name of velocity field
         //  Defult is null (not specified) in which case the velocity is
         //  retrieved from the turbulence model
         word UName_;
 
-        //- Cmu coefficient
+        //- Empirical model coefficient
         scalar Cmu_;
 
-        //- Von Karman constant
+        //- von Kármán constant
         scalar kappa_;
 
-        //- E coefficient
+        //- Wall roughness parameter
         scalar E_;
 
-        //- Estimated y+ value at the edge of the viscous sublayer
+        //- Estimated y+ value at the intersection
+        //- of the viscous and inertial sublayers
         scalar yPlusLam_;
 
 
@@ -123,7 +212,7 @@ protected:
         //- Check the type of the patch
         virtual void checkType();
 
-        //- Calculate the turbulence viscosity
+        //- Calculate the turbulent viscosity
         virtual tmp<scalarField> calcNut() const = 0;
 
         //- Write local wall function variables
@@ -205,13 +294,22 @@ public:
             const label patchi
         );
 
-        //- Calculate the y+ at the edge of the viscous sublayer
+        //- Estimate the y+ at the intersection of the two sublayers
         static scalar yPlusLam(const scalar kappa, const scalar E);
 
-        //- Return the y+ at the edge of the viscous sublayer
+        //- Return the estimated y+ at the two-sublayer intersection
         scalar yPlusLam() const;
 
+        //- Return the blended nut according to the chosen blending treatment
+        scalar blend
+        (
+            const scalar nutVis,
+            const scalar nutLog,
+            const scalar yPlus
+        ) const;
+
         //- Calculate and return the yPlus at the boundary
+        //  yPlus is the first-cell-centre height from boundary in wall units
         virtual tmp<scalarField> yPlus() const = 0;
 
 

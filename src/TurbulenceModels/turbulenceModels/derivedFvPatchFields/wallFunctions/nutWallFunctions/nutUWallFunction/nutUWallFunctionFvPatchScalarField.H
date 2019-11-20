@@ -32,15 +32,17 @@ Group
 
 Description
     This boundary condition provides a wall constraint on the turbulent
-    kinematic viscosity, i.e. \c nut, when using wall functions, based on
+    viscosity, i.e. \c nut, when using wall functions, based on
     velocity, \c U.
 
 Usage
     \table
-        Property     | Description             | Required    | Default value
-        Cmu        | Model coefficient         | no          | 0.09
-        kappa      | Von Karman constant       | no          | 0.41
-        E          | Model coefficient         | no          | 9.8
+        Property  | Description                  | Required  | Default value
+        Cmu       | Empirical model coefficient  | no        | 0.09
+        kappa     | von Kármán constant          | no        | 0.41
+        E         | Wall roughness parameter     | no        | 9.8
+        blending  | Viscous/inertial sublayer blending | no  | stepwise
+        n         | Binomial blending exponent   | no        | 4.0
     \endtable
 
     Example of the boundary condition specification:
@@ -50,7 +52,7 @@ Usage
         // Mandatory entries
         type            nutUWallFunction;
 
-        // Optional entries
+        // Optional entries shown in the table above
     }
     \endverbatim
 
@@ -61,6 +63,8 @@ Note
     Suffers from non-exact restart since correctNut() (called through
     turbulence->validate) returns a slightly different value every time
     it is called. See nutUSpaldingWallFunctionFvPatchScalarField.C
+
+    See nutWallFunctionFvPatchScalarField.H for info on the blending treatments.
 
 SourceFiles
     nutUWallFunctionFvPatchScalarField.C
@@ -92,7 +96,7 @@ protected:
         //- Calculate yPlus
         virtual tmp<scalarField> calcYPlus(const scalarField& magUp) const;
 
-        //- Calculate the turbulence viscosity
+        //- Calculate the turbulent viscosity
         virtual tmp<scalarField> calcNut() const;
 
 
