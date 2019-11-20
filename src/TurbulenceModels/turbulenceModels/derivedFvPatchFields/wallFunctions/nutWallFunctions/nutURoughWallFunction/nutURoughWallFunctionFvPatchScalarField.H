@@ -32,20 +32,20 @@ Group
 
 Description
     This boundary condition provides a wall constraint on the turbulent
-    kinematic viscosity, i.e. \c nut, when using wall functions for rough walls,
+    viscosity, i.e. \c nut, when using wall functions for rough walls,
     based on velocity, \c U.
 
 Usage
     \table
-        Property     | Description             | Required    | Default value
-        roughnessHeight | Roughness height     | yes         |
-        roughnessConstant | Roughness constanr | yes         |
-        roughnessFactor | Scaling factor       | yes         |
-        Cmu        | Model coefficient         | no          | 0.09
-        kappa      | Von Karman constant       | no          | 0.41
-        E          | Model coefficient         | no          | 9.8
-        maxIter    | Number of Newton-Raphson iterations  | no          | 10
-        tolerance  | Convergence tolerance     | no          | 0.0001
+        Property          | Description          | Required    | Default value
+        roughnessHeight   | Roughness height     | yes         |
+        roughnessConstant | Roughness constant   | yes         |
+        roughnessFactor   | Scaling factor       | yes         |
+        Cmu       | Empirical model coefficient  | no          | 0.09
+        kappa     | von Kármán constant          | no          | 0.41
+        E         | Wall roughness parameter     | no          | 9.8
+        maxIter   | Number of Newton-Raphson iterations  | no  | 10
+        tolerance | Convergence tolerance        | no          | 0.0001
     \endtable
 
     Example of the boundary condition specification:
@@ -213,7 +213,6 @@ public:
             {
                 return roughnessHeight_;
             }
-
 
             //- Return the roughness constant scale
             scalar roughnessConstant() const

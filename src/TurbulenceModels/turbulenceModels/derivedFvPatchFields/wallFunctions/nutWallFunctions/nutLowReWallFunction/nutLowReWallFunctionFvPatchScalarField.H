@@ -32,15 +32,15 @@ Group
 
 Description
     This boundary condition provides a wall constraint on the turbulent
-    kinematic viscosity, i.e. \c nut for use with low Reynolds number models.
+    viscosity, i.e. \c nut for low Reynolds number models.
     It sets \c nut to zero, and provides an access function to calculate \c y+.
 
 Usage
     \table
-        Property     | Description                 | Required  | Default value
-        Cmu          | Model coefficient           | no        | 0.09
-        kappa        | Von Karman constant         | no        | 0.41
-        E            | Model coefficient           | no        | 9.8
+        Property  | Description                    | Required  | Default value
+        Cmu       | Empirical model coefficient    | no        | 0.09
+        kappa     | von Kármán constant            | no        | 0.41
+        E         | Wall roughness parameter       | no        | 9.8
     \endtable
 
     Example of the boundary condition specification:
@@ -84,7 +84,7 @@ protected:
 
     // Protected Member Functions
 
-        //- Calculate the turbulence viscosity
+        //- Calculate the turbulent viscosity
         virtual tmp<scalarField> calcNut() const;
 
 

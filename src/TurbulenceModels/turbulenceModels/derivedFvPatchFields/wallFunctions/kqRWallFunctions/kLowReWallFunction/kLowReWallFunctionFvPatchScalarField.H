@@ -34,8 +34,29 @@ Description
     This boundary condition provides a wall constraint on turbulent kinetic
     energy, i.e. \c k, for low- and high-Reynolds number turbulence models.
 
-    The model operates in two modes, based on the computed viscous-to-turbulent
-    switch-over \c y+ value derived from \c kappa and \c E.
+    Viscous and inertial sublayer predictions for \c k are blended in
+    a stepwise manner:
+
+        \f[
+            if (y^+ > y^+_{lam})
+            {
+                k = k_{log}
+            }
+            else
+            {
+                k = k_{vis}
+            }
+        \f]
+        where
+        \vartable
+            k_{vis}        | k prediction in the viscous sublayer
+            k_{log}        | k prediction in the inertial sublayer
+            y^+            | estimated wall-normal height of the relevant
+                             cell centre in wall units
+            y^+_{lam}      | estimated intersection of the viscous and
+                             inertial sublayers inside the buffer layer
+                             in wall units
+        \endvartable
 
 Usage
     \table
@@ -53,7 +74,7 @@ Usage
         // Mandatory entries
         type            kLowReWallFunction;
 
-        // Optional entries
+        // Optional entries shown in the table above
     }
     \endverbatim
 
@@ -64,6 +85,7 @@ Note
 
 See also
     Foam::fixedValueFvPatchField
+    Foam::kqRWallFunctionFvPatchScalarField
 
 SourceFiles
     kLowReWallFunctionFvPatchScalarField.C
@@ -129,7 +151,7 @@ public:
         );
 
         //- Construct by mapping given kLowReWallFunctionFvPatchScalarField
-        //  onto a new patch
+        //- onto a new patch
         kLowReWallFunctionFvPatchScalarField
         (
             const kLowReWallFunctionFvPatchScalarField&,

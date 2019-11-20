@@ -32,7 +32,7 @@ Group
 
 Description
     This boundary condition provides a wall constraint on the turbulent
-    kinematic viscosity, i.e. \c nut, when using wall functions, based on
+    viscosity, i.e. \c nut, when using wall functions, based on
     velocity, i.e. \c U.
 
     As input, the user specifies a look-up table of \c U+ as a function of
@@ -42,11 +42,11 @@ Description
 
 Usage
     \table
-        Property     | Description             | Required    | Default value
-        uPlusTable   | U+ as a function of Re table name | yes |
-        Cmu          | Model coefficient       | no          | 0.09
-        kappa        | Von Karman constant     | no          | 0.41
-        E            | Model coefficient       | no          | 9.8
+        Property     | Description                    | Required  | Default value
+        uPlusTable   | U+ as a function of Re table name | yes    |
+        Cmu          | Empirical model coefficient    | no        | 0.09
+        kappa        | von Kármán constant            | no        | 0.41
+        E            | Wall roughness parameter       | no        | 9.8
     \endtable
 
     Example of the boundary condition specification:
@@ -105,7 +105,7 @@ protected:
 
     // Protected Member Functions
 
-        //- Calculate the turbulence viscosity
+        //- Calculate the turbulent viscosity
         virtual tmp<scalarField> calcNut() const;
 
         //- Calculate wall u+ from table

@@ -32,7 +32,7 @@ Group
 
 Description
     This boundary condition provides a wall constraint on the turbulent
-    kinematic viscosity, i.e. \c nut, when using wall functions for rough walls,
+    viscosity, i.e. \c nut, when using wall functions for rough walls,
     based on velocity, \c U, using Spalding's law to give a continuous \c nut
     profile to the wall (y+ = 0)
 
@@ -45,17 +45,17 @@ Description
     \vartable
         y^+     | non-dimensional position
         u^+     | non-dimensional velocity
-        \kappa  | Von Karman constant
+        \kappa  | von Kármán constant
     \endvartable
 
 Usage
     \table
-        Property   | Description             | Required    | Default value
-        Cmu        | Model coefficient       | no          | 0.09
-        kappa      | Von Karman constant     | no          | 0.41
-        E          | Model coefficient       | no          | 9.8
-        maxIter    | Number of Newton-Raphson iterations   | no          | 10
-        tolerance  | Convergence tolerance   | no          | 0.0001
+        Property   | Description                  | Required    | Default value
+        Cmu        | Empirical model coefficient  | no          | 0.09
+        kappa      | von Kármán constant          | no          | 0.41
+        E          | Wall roughness parameter     | no          | 9.8
+        maxIter    | Number of Newton-Raphson iterations  | no  | 10
+        tolerance  | Convergence tolerance        | no          | 0.0001
     \endtable
 
     Example of the boundary condition specification:
@@ -131,7 +131,7 @@ protected:
 
     // Protected Member Functions
 
-        //- Calculate the turbulence viscosity
+        //- Calculate the turbulent viscosity
         virtual tmp<scalarField> calcNut() const;
 
         //- Calculate the friction velocity

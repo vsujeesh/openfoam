@@ -268,8 +268,8 @@ nutURoughWallFunctionFvPatchScalarField
     roughnessHeight_(dict.get<scalar>("roughnessHeight")),
     roughnessConstant_(dict.get<scalar>("roughnessConstant")),
     roughnessFactor_(dict.get<scalar>("roughnessFactor")),
-    maxIter_(dict.lookupOrDefault<label>("maxIter", 10)),
-    tolerance_(dict.lookupOrDefault<scalar>("tolerance", 0.0001))
+    maxIter_(dict.getOrDefault<label>("maxIter", 10)),
+    tolerance_(dict.getOrDefault<scalar>("tolerance", 0.0001))
 {}
 
 
