@@ -31,41 +31,128 @@ Group
     grpWallFunctions
 
 Description
-    This boundary condition provides a wall constraint on specific turbulent
-    kinetic energy dissipation rate, i.e. \c omega, for low- and high-Reynolds
-    number turbulence models.
+    This boundary condition provides a wall constraint on the specific
+    dissipation rate, i.e. \c omega, and the turbulent kinetic energy
+    production contribution, i.e. \c G, for low- and high-Reynolds number
+    turbulence models.
 
-    The near-wall omega may be either blended between the viscous region and
-    logarithmic region values using:
-
-        \f[
-            \omega = sqrt(\omega_{vis}^2 + \omega_{log}^2)
-        \f]
-
-    where
-
-    \vartable
-        \omega_{vis} | omega in viscous region
-        \omega_{log} | omega in logarithmic region
-    \endvartable
-
-    see eq.(15) of:
+    Reference:
     \verbatim
-        Menter, F., Esch, T.
-        "Elements of Industrial Heat Transfer Prediction"
-        16th Brazilian Congress of Mechanical Engineering (COBEM),
-        Nov. 2001
-    \endverbatim
+        Binomial blending of the viscous and inertial sublayers (tag:ME):
+            Menter, F., & Esch, T. (2001).
+            Elements of industrial heat transfer prediction.
+            In Proceedings of the 16th Brazilian Congress of Mechanical
+            Engineering (COBEM), November 2001. vol. 20, p. 117-127.
 
-    or switched between these values based on the viscous-to-turbulent \c y+
-    value derived from \c kappa and \c E.
+        Exponential/Max blending of the viscous and inertial sublayers (tag:PH):
+            Popovac, M., & Hanjalić, K. (2007).
+            Compound wall treatment for RANS computation of complex
+            turbulent flows and heat transfer.
+            Flow, turbulence and combustion, 78(2), 177-202.
+            DOI:10.1007/s10494-006-9067-x
+
+        Tanh blending of the viscous and inertial sublayers (tag:KAS):
+            Knopp, T., Alrutz, T., & Schwamborn, D. (2006).
+            A grid and flow adaptive wall-function method for RANS
+            turbulence modelling.
+            Journal of Computational Physics, 220(1), 19-40.
+            DOI:10.1016/j.jcp.2006.05.003
+    \endverbatim
 
 Usage
     \table
-        Property     | Description             | Required    | Default value
-        beta1        | Model coefficient       | no          | 0.075
-        blended      | Blending switch         | no          | false
+        Property | Description                    | Required  | Default value
+        blended  | Blending switch (Deprecated)   | no        | true
+        beta1    | Model coefficient              | no        | 0.075
+        blending | Viscous/inertial sublayer blending for omega | no | binomial2
+        n        | Binomial blending exponent                   | no | 2.0
     \endtable
+
+
+    \c omega predictions for the viscous and inertial sublayers can be blended
+    by the following treatments:
+
+      - \c stepwise:
+
+        \f[
+            if (y^+ > y^+_{lam})
+            {
+                \omega = \omega_{log}
+            }
+            else
+            {
+                \omega = \omega_{vis}
+            }
+        \f]
+        where
+        \vartable
+            \omega       | \omega at y^+
+            \omega_{vis} | \omega computed by using viscous sublayer assumptions
+            \omega_{log} | \omega computed by using inertial sublayer assumptions
+            y^+          | estimated wall-normal height of the relevant
+                           cell centre in wall units
+            y^+_{lam}    | estimated intersection of the viscous and
+                           inertial sublayers inside the buffer layer
+                           in wall units
+        \endvartable
+
+
+      - \c max (PH:Eq. 27):
+
+        \f[
+            \omega = max(\omega_{vis}, \omega_{log})
+        \f]
+
+
+      - \c binomial2 (ME:Eq. 15) (default):
+
+        \f[
+            \omega = sqrt(sqr(\omega_{vis}) + sqr(\omega_{log}))
+        \f]
+
+
+      - \c binomial:
+
+        \f[
+            \omega = (\omega_{vis}^n + \omega_{log}^n)^{1/n}
+        \f]
+        where
+        \vartable
+            n | binomial blending exponent
+        \endvartable
+
+
+      - \c exponential (PH:Eq. 32):
+
+        \f[
+            \omega = \omega_{vis} \exp[-\Gamma] + \omega_{log} \exp[-1/\Gamma]
+        \f]
+        where (PH:Eq. 31)
+        \vartable
+            \Gamma | blending expression
+            \Gamma | 0.01 (y^+)^4 / (1.0 + 5.0 y^+)
+        \endvartable
+
+
+      - \c tanh (KAS:Eqs. 33-34):
+
+        \f[
+            \omega = \phi \omega_{b1} + (1 - \phi)\omega_{b2}
+        \f]
+        where
+        \vartable
+            \phi        | tanh((y^+/10)^4)
+            \omega_{b1} | \omega_{vis} + \omega_{log}
+            \omega_{b2} | (\omega_{vis}^{1.2} + \omega_{log}^1.2)^{1/1.2}
+        \endvartable
+
+
+
+    \c G predictions for the viscous and inertial sublayers are blended
+    in a stepwise manner, and \c G below \c y^+_{lam} (i.e. in the viscous
+    sublayer) is presumed to be zero.
+
+
 
     Example of the boundary condition specification:
     \verbatim
@@ -74,21 +161,20 @@ Usage
         // Mandatory entries
         type            omegaWallFunction;
 
-        // Optional entries
+        // Optional entries shown in the table above
     }
     \endverbatim
 
 Note
-    The coefficients \c Cmu, \c kappa, and \c E are obtained from
+  - The coefficients \c Cmu, \c kappa, and \c E are obtained from
     the specified \c nutWallFunction in order to ensure that each patch
     possesses the same set of values for these coefficients.
 
-    Some tests have shown that the stepwise switching method provides
-    more accurate predictions for 10 < y+ < 30 when used with high Reynolds
-    number wall-functions.
-
-    In addition, the stepwise switching method provides accurate predictions
-    when used with continuous wall-functions.
+  - The reason why \c binomial2 and \c binomial blending methods exist at
+    the same time is to ensure the elementwise backward compatibility with
+    the previous versions since \c binomial2 and \c binomial with n=2 will
+    yield slightly different output due to the miniscule differences in the
+    implementation of the basic functions (i.e. pow, sqrt, sqr).
 
 See also
     Foam::fixedInternalValueFvPatchField
@@ -119,6 +205,35 @@ class omegaWallFunctionFvPatchScalarField
 :
     public fixedValueFvPatchField<scalar>
 {
+private:
+
+    // Private Enumerations
+
+        //- Options for the blending treatment of viscous and inertial sublayers
+        enum blendingType
+        {
+            STEPWISE,       //!< "Stepwise switch (discontinuous)"
+            MAX,            //!< "Maximum value switch (discontinuous)"
+            BINOMIAL2,      //!< "Binomial blending (smooth) n = 2"
+            BINOMIAL,       //!< "Binomial blending (smooth)"
+            EXPONENTIAL,    //!< "Exponential blending (smooth)"
+            TANH            //!< "Tanh blending (smooth)"
+        };
+
+        //- Names for blendingType
+        static const Enum<blendingType> blendingTypeNames;
+
+
+    // Private Data
+
+        //- Blending treatment (default = blendingType::BINOMIAL2)
+        enum blendingType blending_;
+
+        //- Blending exponent being used when
+        //- blendingType is blendingType::BINOMIAL (default = 2)
+        const scalar n_;
+
+
 protected:
 
     // Protected Data
@@ -126,7 +241,8 @@ protected:
         //- Tolerance used in weighted calculations
         static scalar tolerance_;
 
-        //- Blending switch
+        //- Deprecated(2019-11) Blending switch
+        //  \deprecated(2019-11) - use blending:: options
         bool blended_;
 
         //- Initialised flag
