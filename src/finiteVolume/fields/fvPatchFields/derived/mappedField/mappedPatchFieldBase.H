@@ -135,7 +135,7 @@ public:
         );
 
         //- Construct copy
-        mappedPatchFieldBase
+        explicit mappedPatchFieldBase
         (
             const mappedPatchFieldBase<Type>& mapper
         );
@@ -174,6 +174,20 @@ public:
 
         //- Map sampleField onto *this patch
         virtual tmp<Field<Type>> mappedField() const;
+
+        //- Map internal of sampleField onto *this patch
+        virtual tmp<Field<Type>> mappedInternalField() const;
+
+        //- Map optional weightField onto *this patch. Default is deltaCoeffs
+        virtual tmp<scalarField> mappedWeightField() const;
+
+        //- Map optional weightField (given by name) onto *this patch
+        virtual void mappedWeightField
+        (    
+            const word& weightFieldName,
+            tmp<scalarField>& thisWeights,
+            tmp<scalarField>& nbrWeights
+        ) const;
 
         //- Write
         virtual void write(Ostream& os) const;

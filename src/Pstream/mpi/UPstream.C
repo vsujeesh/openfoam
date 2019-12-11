@@ -902,7 +902,7 @@ void Foam::UPstream::allocatePstreamCommunicator
 
 void Foam::UPstream::freePstreamCommunicator(const label communicator)
 {
-    if (communicator != UPstream::worldComm)
+    if (communicator != 0)
     {
         if (PstreamGlobals::MPICommunicators_[communicator] != MPI_COMM_NULL)
         {

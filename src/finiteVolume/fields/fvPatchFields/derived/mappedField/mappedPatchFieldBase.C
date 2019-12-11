@@ -204,9 +204,7 @@ Foam::mappedPatchFieldBase<Type>::mappedField
 
     const fvMesh& thisMesh = patchField_.patch().boundaryMesh().mesh();
 
-//    const bool isSampleWorld(UPstream::myWorld() == mapper_.sampleWorld());
     const bool isSampleWorld = true;
-DebugVar(isSampleWorld);
 
     // Result of obtaining remote values
     auto tnewValues = tmp<Field<Type>>::New();
@@ -281,19 +279,14 @@ DebugVar(isSampleWorld);
         case mappedPatchBase::NEARESTPATCHFACE:
         case mappedPatchBase::NEARESTPATCHFACEAMI:
         {
-Pout<< "*** HERE ***" << endl;
             const mapDistribute& distMap = mapper_.map();
             if (isSampleWorld)
             {
                 const fvMesh& nbrMesh =
                     refCast<const fvMesh>(mapper_.sampleMesh());
 
-DebugVar(mapper_.sampleRegion());
-
                 const label nbrPatchID =
                     nbrMesh.boundaryMesh().findPatchID(mapper_.samplePatch());
-
-DebugVar(nbrPatchID);
 
                 if (nbrPatchID < 0)
                 {
@@ -306,12 +299,8 @@ DebugVar(nbrPatchID);
 
                 const auto& nbrField = fld;
 
-DebugVar(nbrField.name());
-
                 newValues = nbrField.boundaryField()[nbrPatchID];
             }
-DebugVar(newValues.size());
-DebugVar(distMap.comm());
             mapper_.distribute(newValues);
 
             break;
@@ -381,6 +370,142 @@ Foam::mappedPatchFieldBase<Type>::mappedField() const
 {
     const GeometricField<Type, fvPatchField, volMesh>& fld = sampleField();
     return mappedField<Type>(fld);
+}
+
+
+template<class Type>
+Foam::tmp<Foam::Field<Type>>
+Foam::mappedPatchFieldBase<Type>::mappedInternalField() const
+{
+    // Swap to obtain full local values of neighbour internal field
+    tmp<Field<Type>> tnbrIntFld(new Field<Type>());
+    Field<Type>& nbrIntFld = tnbrIntFld.ref();
+
+    if (mapper_.sameWorld())
+    {
+        // Same world so lookup
+        const label nbrPatchID = mapper_.samplePolyPatch().index();
+        const auto& nbrField = this->sampleField();
+        nbrIntFld = nbrField.boundaryField()[nbrPatchID].patchInternalField();
+    }
+    else
+    {
+        // Different world so use my region,patch. Distribution below will
+        // do the reordering
+        nbrIntFld = patchField_.patchInternalField();
+    }
+
+    // Since we're inside initEvaluate/evaluate there might be processor
+    // comms underway. Change the tag we use.
+    int oldTag = UPstream::msgType();
+    UPstream::msgType() = oldTag+1;
+
+    mapper_.distribute(nbrIntFld);
+
+    // Restore tag
+    UPstream::msgType() = oldTag;
+
+    return tnbrIntFld;
+}
+
+
+template<class Type>
+Foam::tmp<Foam::scalarField>
+Foam::mappedPatchFieldBase<Type>::mappedWeightField() const
+{
+    // Swap to obtain full local values of neighbour internal field
+    tmp<scalarField> tnbrKDelta(new scalarField());
+    scalarField& nbrKDelta = tnbrKDelta.ref();
+
+    if (mapper_.sameWorld())
+    {
+        // Same world so lookup
+        const auto& nbrMesh = refCast<const fvMesh>(this->mapper_.sampleMesh());
+        const label nbrPatchID = mapper_.samplePolyPatch().index();
+        const auto& nbrPatch = nbrMesh.boundary()[nbrPatchID];
+        nbrKDelta = nbrPatch.deltaCoeffs();
+    }
+    else
+    {
+        // Different world so use my region,patch. Distribution below will
+        // do the reordering
+        nbrKDelta = patchField_.patch().deltaCoeffs();
+    }
+
+
+    // Since we're inside initEvaluate/evaluate there might be processor
+    // comms underway. Change the tag we use.
+    const int oldTag = UPstream::msgType();
+    UPstream::msgType() = oldTag+1;
+
+    mapper_.distribute(nbrKDelta);
+
+    // Restore tag
+    UPstream::msgType() = oldTag;
+
+    return tnbrKDelta;
+}
+
+
+template<class Type>
+void Foam::mappedPatchFieldBase<Type>::mappedWeightField
+(
+    const word& fieldName,
+    tmp<scalarField>& thisWeights,
+    tmp<scalarField>& nbrWeights
+) const
+{
+    thisWeights = new scalarField(patchField_.patch().deltaCoeffs());
+    if (!fieldName.empty())
+    {
+        thisWeights.ref() *=
+            patchField_.patch().template lookupPatchField
+            <
+                volScalarField,
+                scalar
+            >
+            (
+                fieldName
+            ).patchInternalField();
+    }
+
+
+    // Swap to obtain full local values of neighbour internal field
+
+    if (mapper_.sameWorld())
+    {
+        // Same world so lookup
+        const auto& nbrMesh = refCast<const fvMesh>(mapper_.sampleMesh());
+        const label nbrPatchID = mapper_.samplePolyPatch().index();
+        const auto& nbrPatch = nbrMesh.boundary()[nbrPatchID];
+
+        nbrWeights = new scalarField(nbrPatch.deltaCoeffs());
+
+        if (!fieldName.empty())
+        {
+            // Weightfield is volScalarField
+            const auto& nbrWeightField =
+                nbrMesh.template lookupObject<volScalarField>(fieldName);
+            nbrWeights.ref() *=
+                nbrWeightField.boundaryField()[nbrPatchID].patchInternalField();
+        }
+    }
+    else
+    {
+        // Different world so use my region,patch. Distribution below will
+        // do the reordering
+        nbrWeights = new scalarField(thisWeights());
+    }
+
+    // Since we're inside initEvaluate/evaluate there might be processor
+    // comms underway. Change the tag we use.
+    int oldTag = UPstream::msgType();
+    UPstream::msgType() = oldTag+1;
+
+    mapper_.distribute(nbrWeights.ref());
+
+    // Restore tag
+    UPstream::msgType() = oldTag;
 }
 
 

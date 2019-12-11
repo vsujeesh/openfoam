@@ -149,6 +149,12 @@ inline Foam::label Foam::mappedPatchBase::comm() const
 }
 
 
+inline bool Foam::mappedPatchBase::sameWorld() const
+{
+    return !UPstream::worlds().size() || (UPstream::myWorld() == sampleWorld_);
+}
+
+
 inline bool Foam::mappedPatchBase::sameRegion() const
 {
     return sameRegion_;

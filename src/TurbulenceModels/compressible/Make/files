@@ -17,6 +17,9 @@ $(BCs)/turbulentTemperatureCoupledBaffleMixed/turbulentTemperatureCoupledBaffleM
 $(BCs)/turbulentTemperatureRadCoupledMixed/turbulentTemperatureRadCoupledMixedFvPatchScalarField.C
 $(BCs)/lumpedMassWallTemperature/lumpedMassWallTemperatureFvPatchScalarField.C
 
+$(BCs)/turbulentTemperatureCoupledBaffleMixed/turbulentTemperatureCoupledBaffle2MixedFvPatchScalarField.C
+
+
 $(BCs)/wallFunctions/alphatWallFunctions/alphatWallFunction/alphatWallFunctionFvPatchScalarField.C
 $(BCs)/wallFunctions/alphatWallFunctions/alphatJayatillekeWallFunction/alphatJayatillekeWallFunctionFvPatchScalarField.C
 

@@ -29,8 +29,11 @@ Group
 
 Description
     This boundary condition provides a self-contained version of e.g. mapped
-    mixed boundary conditions.
-    It does not use information on the patch; instead it holds the data locally.
+    boundary conditions
+    - it expects two-way coupling (so the sampled field needs to run the
+      same bc)
+    - it does not use information on the patch; instead it holds the coupling
+      data locally.
 
 Usage
     \table
@@ -54,11 +57,16 @@ Usage
     \endverbatim
 
 Note
-    Since this condition can be applied on a per-field and per-patch basis,
-    it is possible to duplicate the mapping information.  If possible, employ
-    the \c mapped condition in preference to avoid this situation, and only
-    employ this condition if it is not possible to change the underlying
-    geometric (poly) patch type to \c mapped.
+    Supports multi-world operation:
+
+    +----+                      +----+
+    |    |                      |    |
+    |    |                      |    |
+    +----+                      +----+
+    worldA                      worldB
+    regionA                     regionB
+    patchA                      patchB
+
 
 See also
     Foam::mappedPatchBase

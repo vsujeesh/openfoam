@@ -194,72 +194,20 @@ void Foam::mappedMixedFvPatchField<Type>::rmap
 template<class Type>
 void Foam::mappedMixedFvPatchField<Type>::updateCoeffs()
 {
-    //typedef GeometricField<Type, fvPatchField, volMesh> fieldType;
-
     if (this->updated())
     {
         return;
     }
-    // Get the coupling information from the mappedPatchBase
-    const mappedPatchBase& mpp = *this;
 
-    //const bool isSampleWorld(UPstream::myWorld() == mapper_.sampleWorld());
-    const bool isSampleWorld = true;
+    const tmp<Field<Type>> nbrIntFld(this->mappedInternalField());
 
-    // Swap to obtain full local values of neighbour internal field
-    Field<Type> nbrIntFld;
-    scalarField nbrKDelta;
+    //- Unweighted
+    //const tmp<scalarField> nbrKDelta(this->mappedWeightField());
 
-    if (isSampleWorld)
-    {
-        const auto& nbrMesh = refCast<const fvMesh>(this->mapper_.sampleMesh());
-        const label nbrPatchID = mpp.samplePolyPatch().index();
-        const auto& nbrPatch = nbrMesh.boundary()[nbrPatchID];
-        const auto& nbrField = this->sampleField();
-
-        nbrIntFld = nbrField.boundaryField()[nbrPatchID].patchInternalField();
-
-        //Pout<< "Sampled patch:" << nbrPatch.name() << nl
-        //    << "    patchValue:" << *this << nl
-        //    << "    patchIntValue:" << nbrIntFld
-        //    << endl;
-        // Weightfield is volScalarField
-        const auto& nbrWeightField =
-            //this->sampleField<scalar>(weightFieldName_);
-            nbrMesh.template lookupObject<volScalarField>(weightFieldName_);
-
-        nbrKDelta =
-            nbrWeightField.boundaryField()[nbrPatchID].patchInternalField()
-           *nbrPatch.deltaCoeffs();
-    }
-
-    // Since we're inside initEvaluate/evaluate there might be processor
-    // comms underway. Change the tag we use.
-    int oldTag = UPstream::msgType();
-    UPstream::msgType() = oldTag+1;
-
-    mpp.distribute(nbrIntFld);
-    mpp.distribute(nbrKDelta);
-
-DebugVar(nbrIntFld);
-DebugVar(nbrKDelta);
-
-
-    // Restore tag
-    UPstream::msgType() = oldTag;
-
-    const auto& myWeightField =
-    this->db().objectRegistry::lookupObject<volScalarField>
-    (
-        weightFieldName_
-    );
-
-    const label patchi = this->patch().index();
-
-    tmp<scalarField> myKDelta =
-        myWeightField.boundaryField()[patchi].patchInternalField()
-       *this->patch().deltaCoeffs();
-
+    //- Weighted
+    tmp<scalarField> myKDelta;
+    tmp<scalarField> nbrKDelta;
+    this->mappedWeightField(weightFieldName_, myKDelta, nbrKDelta);
 
     // Both sides agree on
     // - temperature : (myKDelta*fld + nbrKDelta*nbrFld)/(myKDelta+nbrKDelta)
@@ -278,32 +226,24 @@ DebugVar(nbrKDelta);
 
     this->refValue() = nbrIntFld;
     this->refGrad() = Zero;
-    this->valueFraction() = nbrKDelta/(nbrKDelta + myKDelta());
-
-    mixedFvPatchScalarField::updateCoeffs();
-
-    //if (debug)
-    //{
-    //    scalar Q = gSum(kappa(*this)*patch().magSf()*snGrad());
-    //
-    //    Info<< patch().boundaryMesh().mesh().name() << ':'
-    //        << patch().name() << ':'
-    //        << this->internalField().name() << " <- "
-    //        << nbrMesh.name() << ':'
-    //        << nbrPatch.name() << ':'
-    //        << this->internalField().name() << " :"
-    //        << " heat transfer rate:" << Q
-    //        << " walltemperature "
-    //        << " min:" << gMin(*this)
-    //        << " max:" << gMax(*this)
-    //        << " avg:" << gAverage(*this)
-    //        << endl;
-    //}
+    this->valueFraction() = nbrKDelta()/(nbrKDelta() + myKDelta());
 
     mixedFvPatchField<Type>::updateCoeffs();
 
-    Pout<< "** now this value:" << static_cast<const Field<Type>&>(*this)
-        << endl;
+    if (debug)
+    {
+        Info<< this->patch().boundaryMesh().mesh().name() << ':'
+            << this->patch().name() << ':'
+            << this->internalField().name() << " <- "
+            << this->mapper_.sampleRegion() << ':'
+            << this->mapper_.samplePatch() << ':'
+            << this->fieldName_ << " :"
+            << " value "
+            << " min:" << gMin(*this)
+            << " max:" << gMax(*this)
+            << " avg:" << gAverage(*this)
+            << endl;
+    }
 }
 
 
