@@ -37,7 +37,7 @@ Description
         Property    | Description                           | Required | Default
         points      | List of points                        | yes |
         angles      | List of Euler rotation angles         | yes |
-        order       | The Euler-angle rotation order        | no  | zxz
+        rotationOrder | The Euler-angle rotation order      | no  | zxz
         degrees     | Rotation angles in degrees            | no  | false
     \endtable
 
@@ -77,6 +77,7 @@ SourceFiles
 namespace Foam
 {
 
+// Forward declarations
 class Istream;
 class Ostream;
 
@@ -125,9 +126,23 @@ private:
 
         void calcRotations() const;
 
-        void readDict(const dictionary& dict);
+        void readDict
+        (
+            const dictionary& dict,
+            const quaternion::eulerOrder rotOrder = quaternion::eulerOrder::ZXZ,
+            const bool degrees = false
+        );
 
 public:
+
+    // Public Data
+
+        //- Enable/disable visualization of unused points
+        static bool visUnused;
+
+        //- The length for visualization triangles
+        static scalar visLength;
+
 
     // Constructors
 
@@ -138,13 +153,28 @@ public:
         lumpedPointState(const lumpedPointState& rhs);
 
         //- Construct from points with zero-rotation
-        lumpedPointState(const pointField& pts);
+        explicit lumpedPointState
+        (
+            const pointField& pts,
+            const quaternion::eulerOrder rotOrder = quaternion::eulerOrder::ZXZ,
+            const bool degrees = false
+        );
 
         //- Construct from points with zero-rotation
-        lumpedPointState(tmp<pointField>& pts);
+        explicit lumpedPointState
+        (
+            tmp<pointField>& pts,
+            const quaternion::eulerOrder rotOrder = quaternion::eulerOrder::ZXZ,
+            const bool degrees = false
+        );
 
         //- Construct from dictionary
-        lumpedPointState(const dictionary& dict);
+        explicit lumpedPointState
+        (
+            const dictionary& dict,
+            const quaternion::eulerOrder rotOrder = quaternion::eulerOrder::ZXZ,
+            const bool degrees = false
+        );
 
 
     //- Destructor
@@ -175,6 +205,12 @@ public:
         //  Zero and negative values are ignored.
         void scalePoints(const scalar scaleFactor);
 
+        //- The Euler-angle rotation order
+        inline quaternion::eulerOrder rotationOrder() const;
+
+        //-  Rotation angles in degrees
+        inline bool degrees() const;
+
         //- Relax the state
         //  alpha = 1 : no relaxation
         //  alpha < 1 : relaxation
@@ -182,7 +218,12 @@ public:
         void relax(const scalar alpha, const lumpedPointState& prev);
 
         //- Read input as dictionary content
-        bool readData(Istream& is);
+        bool readData
+        (
+            Istream& is,
+            const quaternion::eulerOrder rotOrder = quaternion::eulerOrder::ZXZ,
+            const bool degrees = false
+        );
 
         //- Output as dictionary content
         bool writeData(Ostream& os) const;
@@ -191,24 +232,42 @@ public:
         void writeDict(Ostream& os) const;
 
         //- Read input as plain content
-        bool readPlain(Istream& is);
+        bool readPlain
+        (
+            Istream& is,
+            const quaternion::eulerOrder rotOrder = quaternion::eulerOrder::ZXZ,
+            const bool degrees = false
+        );
 
         //- Output as plain content
         void writePlain(Ostream& os) const;
 
         //- Read input from file (master process only) using specified format
-        bool readData(const inputFormatType& fmt, const fileName& file);
+        bool readData
+        (
+            const inputFormatType& fmt,
+            const fileName& file,
+            const quaternion::eulerOrder rotOrder = quaternion::eulerOrder::ZXZ,
+            const bool degrees = false
+        );
 
-        //- Output as VTK file for debugging/visualization
-        //  The points are joined as lines, the rotation is visualized
-        //  by planes, write as VTK PolyData format.
-        void writeVTP(const fileName& outputFile, const vector& axis) const;
+        //- Output points/rotations as VTK file for debugging/visualization
+        //  The points are written as vertices, rotation as a triangle
+        void writeVTP
+        (
+            const fileName& outputFile,
+            const labelListList& lines = labelListList(),
+            const labelList& pointIds = labelList::null()
+        ) const;
 
 
     // Member Operators
 
         //- Assignment operator
         void operator=(const lumpedPointState& rhs);
+
+        //- Shift points by specified origin
+        void operator+=(const point& origin);
 };
 
 

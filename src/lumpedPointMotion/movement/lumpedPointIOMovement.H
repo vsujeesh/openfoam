@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2016-2017 OpenCFD Ltd.
+    Copyright (C) 2016-2019 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -46,11 +46,6 @@ SourceFiles
 namespace Foam
 {
 
-// Forward declarations
-class lumpedPointIOMovement;
-
-Ostream& operator<<(Ostream& os, const lumpedPointIOMovement& obj);
-
 /*---------------------------------------------------------------------------*\
                     Class lumpedPointIOMovement Declaration
 \*---------------------------------------------------------------------------*/
@@ -68,17 +63,17 @@ class lumpedPointIOMovement
         //- No copy assignment
         void operator=(const lumpedPointIOMovement&) = delete;
 
+
 public:
 
     //- Runtime type information
-    TypeName("lumpedPointMovement");
+    TypeNameNoDebug("lumpedPointMovement");
 
 
     // Static Member Functions
 
-        //- Lookup pointer to object in the object-registry,
-        //  return nullptr if found.
-        static const lumpedPointIOMovement* lookupInRegistry
+        //- Get the movement object, or return nullptr if not found.
+        static lumpedPointIOMovement* getMovementObject
         (
             const objectRegistry& obr
         );
@@ -102,26 +97,21 @@ public:
 
 
     //- Destructor
-    ~lumpedPointIOMovement() = default;
+    virtual ~lumpedPointIOMovement() = default;
 
 
     // Member Functions
 
-        //- readData member function used by regIOobject
+        //- The readData member function used by regIOobject
         bool readData(Istream& is);
 
-        //- writeData member function required by regIOobject
+        //- The writeData member function required by regIOobject
         bool writeData(Ostream& os) const;
-
-
-    // IOstream Operators
-
-        friend Ostream& operator<<
-        (
-            Ostream& os,
-            const lumpedPointIOMovement& obj
-        );
 };
+
+
+// IOstream Operators
+Ostream& operator<<(Ostream& os, const lumpedPointIOMovement& obj);
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
