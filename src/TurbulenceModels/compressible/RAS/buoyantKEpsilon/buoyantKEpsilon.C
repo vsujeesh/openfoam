@@ -28,7 +28,6 @@ License
 
 #include "buoyantKEpsilon.H"
 #include "gravityMeshObject.H"
-#include "fvcGrad.H"
 #include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -67,7 +66,7 @@ buoyantKEpsilon<BasicTurbulenceModel>::buoyantKEpsilon
 
     Cg_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "Cg",
             this->coeffDict_,
@@ -99,15 +98,15 @@ bool buoyantKEpsilon<BasicTurbulenceModel>::read()
 
 
 template<class BasicTurbulenceModel>
-tmp<volScalarField>
+tmp<volScalarField::Internal>
 buoyantKEpsilon<BasicTurbulenceModel>::Gcoef() const
 {
     const uniformDimensionedVectorField& g =
         meshObjects::gravity::New(this->mesh_.time());
 
     return
-        (Cg_*this->Cmu_)*this->alpha_*this->k_*(g & fvc::grad(this->rho_))
-       /(this->epsilon_ + this->epsilonMin_);
+        (Cg_*this->Cmu_)*this->alpha_()*this->k_()*(g & fvc::grad(this->rho_))()
+       /(this->epsilon_() + this->epsilonMin_);
 }
 
 
@@ -136,12 +135,12 @@ buoyantKEpsilon<BasicTurbulenceModel>::epsilonSource() const
 
     if (mag(g.value()) > SMALL)
     {
-        vector gHat(g.value()/mag(g.value()));
+        const vector gHat(g.value()/mag(g.value()));
 
-        volScalarField v(gHat & this->U_);
-        volScalarField u
+        const volScalarField::Internal v(gHat & this->U_());
+        const volScalarField::Internal u
         (
-            mag(this->U_ - gHat*v)
+            mag(this->U_() - gHat*v)
           + dimensionedScalar("SMALL", dimVelocity, SMALL)
         );
 

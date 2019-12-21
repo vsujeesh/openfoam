@@ -47,40 +47,42 @@ addToRunTimeSelectionTable(RASModel, kkLOmega, dictionary);
 
 // * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * * //
 
-tmp<volScalarField> kkLOmega::fv(const volScalarField& Ret) const
+tmp<volScalarField::Internal> kkLOmega::fv(const volScalarField::Internal& Ret) const
 {
-    return(1.0 - exp(-sqrt(Ret)/Av_));
+    return 1.0 - exp(-sqrt(Ret)/Av_);
 }
 
 
-tmp<volScalarField> kkLOmega::fINT() const
+tmp<volScalarField::Internal> kkLOmega::fINT() const
 {
     return
     (
         min
         (
-            kt_/(Cint_*(kl_ + kt_ + kMin_)),
+            kt_()/(Cint_*(kl_() + kt_() + kMin_)),
             dimensionedScalar("1.0", dimless, 1.0)
         )
     );
 }
 
 
-tmp<volScalarField> kkLOmega::fSS(const volScalarField& Omega) const
+tmp<volScalarField::Internal> kkLOmega::fSS(const volScalarField::Internal& Omega) const
 {
-    return(exp(-sqr(Css_*nu()*Omega/(kt_ + kMin_))));
+    return exp(-sqr(Css_*nu().v()*Omega/(kt_() + kMin_)));
 }
 
 
 tmp<volScalarField> kkLOmega::Cmu(const volScalarField& S) const
 {
-    return(1.0/(A0_ + As_*(S/(omega_ + omegaMin_))));
+    // (F:Eq. 19)
+    return (1.0/(A0_ + As_*(S/(omega_ + omegaMin_))));
 }
 
 
 tmp<volScalarField> kkLOmega::BetaTS(const volScalarField& ReOmega) const
 {
-    return(scalar(1) - exp(-sqr(max(ReOmega - CtsCrit_, scalar(0)))/Ats_));
+    // (F:Eq. 24)
+    return (scalar(1) - exp(-sqr(max(ReOmega - CtsCrit_, scalar(0)))/Ats_));
 }
 
 
@@ -91,6 +93,7 @@ tmp<volScalarField> kkLOmega::fTaul
     const volScalarField& Omega
 ) const
 {
+    // (F:Eq. 25)
     return
     (
         scalar(1)
@@ -122,7 +125,7 @@ tmp<volScalarField> kkLOmega::alphaT
     const volScalarField& ktS
 ) const
 {
-    return(fv*CmuStd_*sqrt(ktS)*lambdaEff);
+    return (fv*CmuStd_*sqrt(ktS)*lambdaEff);
 }
 
 
@@ -132,6 +135,7 @@ tmp<volScalarField> kkLOmega::fOmega
     const volScalarField& lambdaT
 ) const
 {
+    // Damping function (F:Eq. 29)
     return
     (
         scalar(1)
@@ -248,7 +252,7 @@ kkLOmega::kkLOmega
 
     A0_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "A0",
             coeffDict_,
@@ -257,7 +261,7 @@ kkLOmega::kkLOmega
     ),
     As_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "As",
             coeffDict_,
@@ -266,7 +270,7 @@ kkLOmega::kkLOmega
     ),
     Av_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "Av",
             coeffDict_,
@@ -275,7 +279,7 @@ kkLOmega::kkLOmega
     ),
     Abp_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "Abp",
             coeffDict_,
@@ -284,7 +288,7 @@ kkLOmega::kkLOmega
     ),
     Anat_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "Anat",
             coeffDict_,
@@ -293,7 +297,7 @@ kkLOmega::kkLOmega
     ),
     Ats_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "Ats",
             coeffDict_,
@@ -302,7 +306,7 @@ kkLOmega::kkLOmega
     ),
     CbpCrit_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "CbpCrit",
             coeffDict_,
@@ -311,7 +315,7 @@ kkLOmega::kkLOmega
     ),
     Cnc_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "Cnc",
             coeffDict_,
@@ -320,7 +324,7 @@ kkLOmega::kkLOmega
     ),
     CnatCrit_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "CnatCrit",
             coeffDict_,
@@ -329,7 +333,7 @@ kkLOmega::kkLOmega
     ),
     Cint_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "Cint",
             coeffDict_,
@@ -338,7 +342,7 @@ kkLOmega::kkLOmega
     ),
     CtsCrit_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "CtsCrit",
             coeffDict_,
@@ -347,7 +351,7 @@ kkLOmega::kkLOmega
     ),
     CrNat_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "CrNat",
             coeffDict_,
@@ -356,7 +360,7 @@ kkLOmega::kkLOmega
     ),
     C11_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "C11",
             coeffDict_,
@@ -365,7 +369,7 @@ kkLOmega::kkLOmega
     ),
     C12_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "C12",
             coeffDict_,
@@ -374,7 +378,7 @@ kkLOmega::kkLOmega
     ),
     CR_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "CR",
             coeffDict_,
@@ -383,7 +387,7 @@ kkLOmega::kkLOmega
     ),
     CalphaTheta_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "CalphaTheta",
             coeffDict_,
@@ -392,7 +396,7 @@ kkLOmega::kkLOmega
     ),
     Css_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "Css",
             coeffDict_,
@@ -401,7 +405,7 @@ kkLOmega::kkLOmega
     ),
     CtauL_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "CtauL",
             coeffDict_,
@@ -410,7 +414,7 @@ kkLOmega::kkLOmega
     ),
     Cw1_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "Cw1",
             coeffDict_,
@@ -419,7 +423,7 @@ kkLOmega::kkLOmega
     ),
     Cw2_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "Cw2",
             coeffDict_,
@@ -428,7 +432,7 @@ kkLOmega::kkLOmega
     ),
     Cw3_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "Cw3",
             coeffDict_,
@@ -437,7 +441,7 @@ kkLOmega::kkLOmega
     ),
     CwR_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "CwR",
             coeffDict_,
@@ -446,7 +450,7 @@ kkLOmega::kkLOmega
     ),
     Clambda_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "Clambda",
             coeffDict_,
@@ -455,7 +459,7 @@ kkLOmega::kkLOmega
     ),
     CmuStd_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "CmuStd",
             coeffDict_,
@@ -464,27 +468,27 @@ kkLOmega::kkLOmega
     ),
     Prtheta_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "Prtheta",
             coeffDict_,
             0.85
         )
     ),
-    Sigmak_
+    sigmak_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
-            "Sigmak",
+            "sigmak",
             coeffDict_,
             1
         )
     ),
-    Sigmaw_
+    sigmaOmega_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
-            "Sigmaw",
+            "sigmaOmega",
             coeffDict_,
             1.17
         )
@@ -525,22 +529,21 @@ kkLOmega::kkLOmega
         ),
         mesh_
     ),
-    epsilon_
-    (
-        IOobject
-        (
-            "epsilon",
-            runTime_.timeName(),
-            mesh_
-        ),
-        kt_*omega_ + D(kl_) + D(kt_)
-    ),
+
     y_(wallDist::New(mesh_).y())
 {
+    if (mag(sigmak_.value()) < VSMALL || mag(sigmaOmega_.value()) < VSMALL)
+    {
+        FatalErrorInFunction
+            << "Non-zero values are required for the model constants:" << nl
+            << "sigmak = " << sigmak_ << nl
+            << "sigmaOmega = " << sigmaOmega_ << nl
+            << exit(FatalError);
+    }
+
     bound(kt_, kMin_);
     bound(kl_, kMin_);
     bound(omega_, omegaMin_);
-    bound(epsilon_, epsilonMin_);
 
     if (type == typeName)
     {
@@ -584,8 +587,8 @@ bool kkLOmega::read()
         Clambda_.readIfPresent(coeffDict());
         CmuStd_.readIfPresent(coeffDict());
         Prtheta_.readIfPresent(coeffDict());
-        Sigmak_.readIfPresent(coeffDict());
-        Sigmaw_.readIfPresent(coeffDict());
+        sigmak_.readIfPresent(coeffDict());
+        sigmaOmega_.readIfPresent(coeffDict());
 
         return true;
     }
@@ -600,18 +603,21 @@ void kkLOmega::validate()
 
 void kkLOmega::correct()
 {
-    eddyViscosity<incompressible::RASModel>::correct();
-
     if (!turbulence_)
     {
         return;
     }
 
-    const volScalarField lambdaT(sqrt(kt_)/(omega_ + omegaMin_));
+    eddyViscosity<incompressible::RASModel>::correct();
 
-    const volScalarField lambdaEff(min(Clambda_*y_, lambdaT));
+    // Turbulent length scale (F:Eq. 13)
+    const volScalarField::Internal lambdaT(sqrt(kt_())/(omega_() + omegaMin_));
 
-    const volScalarField fw
+    // Wall-limited turbulence length scale (F:Eq. 12)
+    const volScalarField::Internal lambdaEff(min(Clambda_*y_, lambdaT));
+
+    // Damping function (F:Eq. 14)
+    const volScalarField::Internal fW
     (
         pow
         (
@@ -624,23 +630,30 @@ void kkLOmega::correct()
     tmp<volTensorField> tgradU(fvc::grad(U_));
     const volTensorField& gradU = tgradU();
 
-    const volScalarField Omega(sqrt(2.0)*mag(skew(gradU)));
+    const volScalarField::Internal Omega(sqrt(2.0)*mag(skew(gradU())));
 
-    const volScalarField S2(2.0*magSqr(dev(symm(gradU))));
+    const volScalarField::Internal S2(2.0*magSqr(dev(symm(gradU()))));
 
-    const volScalarField ktS(fSS(Omega)*fw*kt_);
+    const volScalarField::Internal ktS(fSS(Omega)*fW*kt_());
 
-    const volScalarField nuts
+    // `Small-scale` eddy viscosity (F:Eq. 10)
+    const volScalarField::Internal nuts
     (
-        fv(sqr(fw)*kt_/nu()/(omega_ + omegaMin_))
+        fv(sqr(fW)*kt_()/nu().v()/(omega_() + omegaMin_))
        *fINT()
        *Cmu(sqrt(S2))*sqrt(ktS)*lambdaEff
     );
-    volScalarField Pkt(this->GName(), nuts*S2);
+    // Turbulent kinetic energy production (F:Eq. 8)
+    const volScalarField::Internal Pkt(this->GName(), nuts*S2);
 
-    const volScalarField ktL(kt_ - ktS);
-    const volScalarField ReOmega(sqr(y_)*Omega/nu());
-    const volScalarField nutl
+    // (F:Eq. 21)
+    const volScalarField::Internal ktL(kt_() - ktS);
+
+    // (F:Eq. 23)
+    const volScalarField::Internal ReOmega(sqr(y_)*Omega/nu().v());
+
+    // (F:Eq. 22)
+    const volScalarField::Internal nutl
     (
         min
         (
@@ -652,35 +665,38 @@ void kkLOmega::correct()
         )
     );
 
+    // Laminar kinetic energy production (F:Eq. 9)
     const volScalarField Pkl(nutl*S2);
 
+    // Turbulent diffusivity (F:Eq. 28)
     const volScalarField alphaTEff
     (
-        alphaT(lambdaEff, fv(sqr(fw)*kt_/nu()/(omega_ + omegaMin_)), ktS)
+        alphaT(lambdaEff, fv(sqr(fW)*kt_/nu()/(omega_ + omegaMin_)), ktS)
     );
 
-    // By pass source term divided by kl_
+    const dimensionedScalar fWMin("SMALL", dimless, ROOTVSMALL);
 
-    const dimensionedScalar fwMin("SMALL", dimless, ROOTVSMALL);
-
+    // Bypass transition source divided by kl_ (F:Eq. 32)
     const volScalarField Rbp
     (
         CR_*(1.0 - exp(-phiBP(Omega)()/Abp_))*omega_
-       /(fw + fwMin)
+       /(fW + fWMin)
     );
 
+    // (F:Eq. 36)
     const volScalarField fNatCrit(1.0 - exp(-Cnc_*sqrt(kl_)*y_/nu()));
 
-    // Natural source term divided by kl_
+    // Natural transition source divided by kl_ (F:Eq. 31)
     const volScalarField Rnat
     (
         CrNat_*(1.0 - exp(-phiNAT(ReOmega, fNatCrit)/Anat_))*Omega
     );
 
 
+    // Update omega and G at the wall
     omega_.boundaryFieldRef().updateCoeffs();
 
-    // Turbulence specific dissipation rate equation
+    // Specific dissipation rate equation (F:Eq. 7)
     tmp<fvScalarMatrix> omegaEqn
     (
         fvm::ddt(omega_)
@@ -690,25 +706,24 @@ void kkLOmega::correct()
         Cw1_*Pkt*omega_/(kt_ + kMin_)
       - fvm::SuSp
         (
-            (1.0 - CwR_/(fw + fwMin))*kl_*(Rbp + Rnat)/(kt_ + kMin_)
+            (1.0 - CwR_/(fW + fWMin))*kl_*(Rbp + Rnat)/(kt_ + kMin_)
           , omega_
         )
-      - fvm::Sp(Cw2_*sqr(fw)*omega_, omega_)
+      - fvm::Sp(Cw2_*sqr(fW)*omega_, omega_)
       + (
-            Cw3_*fOmega(lambdaEff, lambdaT)*alphaTEff*sqr(fw)*sqrt(kt_)
+            Cw3_*fOmega(lambdaEff, lambdaT)*alphaTEff*sqr(fW)*sqrt(kt_)
         )()()/pow3(y_())
     );
 
     omegaEqn.ref().relax();
     omegaEqn.ref().boundaryManipulate(omega_.boundaryFieldRef());
-
     solve(omegaEqn);
     bound(omega_, omegaMin_);
 
-
+    // Anisotropic part of laminar kinetic energy dissipation rate (F:Eq. 27)
     const volScalarField Dl(D(kl_));
 
-    // Laminar kinetic energy equation
+    // Laminar kinetic energy equation (F:Eq. 6)
     tmp<fvScalarMatrix> klEqn
     (
         fvm::ddt(kl_)
@@ -721,14 +736,13 @@ void kkLOmega::correct()
 
     klEqn.ref().relax();
     klEqn.ref().boundaryManipulate(kl_.boundaryFieldRef());
-
     solve(klEqn);
     bound(kl_, kMin_);
 
-
+    // Anisotropic part of turbulent kinetic energy dissipation rate (F:Eq. 26)
     const volScalarField Dt(D(kt_));
 
-    // Turbulent kinetic energy equation
+    // Turbulent kinetic energy equation (F:Eq. 5)
     tmp<fvScalarMatrix> ktEqn
     (
         fvm::ddt(kt_)
@@ -742,15 +756,8 @@ void kkLOmega::correct()
 
     ktEqn.ref().relax();
     ktEqn.ref().boundaryManipulate(kt_.boundaryFieldRef());
-
     solve(ktEqn);
     bound(kt_, kMin_);
-
-
-    // Update total fluctuation kinetic energy dissipation rate
-    epsilon_ = kt_*omega_ + Dl + Dt;
-    bound(epsilon_, epsilonMin_);
-
 
     // Re-calculate turbulent viscosity
     nut_ = nuts + nutl;

@@ -32,55 +32,61 @@ Group
 
 Description
     Low Reynolds-number k-kl-omega turbulence model for
-    incompressible flows.
+    incompressible transitional flows.
+
+    The model is a three-transport-equation linear-eddy-viscosity turbulence
+    closure model:
+      - Laminar kinetic energy, \c kl,
+      - Turbulent kinetic energy, \c kt,
+      - Specific dissipation rate, \c omega.
 
     Reference:
     \verbatim
-        Standard model:
+        Standard model (tag:WC):
             Walters, D. K., & Cokljat, D. (2008).
             A three-equation eddy-viscosity model for Reynolds-averaged
             Navier–Stokes simulations of transitional flow.
             Journal of Fluids Engineering, 130(12), 121401.
             DOI:10.1115/1.2979230
 
-        Typo corrections:
-            Furst, J. (2013).
+        Typo corrections (tag:F):
+            F{\"u}rst, J. (2013).
             Numerical simulation of transitional flows
             with laminar kinetic energy.
             Engineering MECHANICS, 20(5), 379-388.
     \endverbatim
 
-    The default model coefficients are
+    The default model coefficients are (F:p. 383):
     \verbatim
         kkLOmegaCoeffs
         {
-            A0             4.04
-            As             2.12
-            Av             6.75
-            Abp            0.6
-            Anat           200
-            Ats            200
-            CbpCrit        1.2
-            Cnc            0.1
-            CnatCrit       1250
-            Cint           0.75
-            CtsCrit        1000
-            CrNat          0.02
-            C11            3.4e-6
-            C12            1.0e-10
-            CR             0.12
-            CalphaTheta    0.035
-            Css            1.5
-            CtauL          4360
-            Cw1            0.44
-            Cw2            0.92
-            Cw3            0.3
-            CwR            1.5
-            Clambda        2.495
-            CmuStd         0.09
-            Prtheta        0.85
-            Sigmak         1
-            Sigmaw         1.17
+            A0             4.04;
+            As             2.12;
+            Av             6.75;
+            Abp            0.6;
+            Anat           200;
+            Ats            200;
+            CbpCrit        1.2;
+            Cnc            0.1;
+            CnatCrit       1250;
+            Cint           0.75;
+            CtsCrit        1000;
+            CrNat          0.02;
+            C11            3.4e-6;
+            C12            1.0e-10;
+            CR             0.12;
+            CalphaTheta    0.035;
+            Css            1.5;
+            CtauL          4360;
+            Cw1            0.44;
+            Cw2            0.92;
+            Cw3            0.3;
+            CwR            1.5;
+            Clambda        2.495;
+            CmuStd         0.09;
+            Prtheta        0.85;
+            sigmak         1;
+            sigmaOmega     1.17;
         }
     \endverbatim
 
@@ -112,22 +118,34 @@ class kkLOmega
 :
     public eddyViscosity<incompressible::RASModel>
 {
-    // Private member functions
+    // Private Member Functions
 
-        tmp<volScalarField> fv(const volScalarField& Ret) const;
+        //- No copy construct
+        kkLOmega(const kkLOmega&) = delete;
 
-        tmp<volScalarField> fINT() const;
+        //- No copy assignment
+        void operator=(const kkLOmega&) = delete;
 
-        tmp<volScalarField> fSS(const volScalarField& omega) const;
+        tmp<volScalarField::Internal> fv
+        (
+            const volScalarField::Internal& Ret
+        ) const;
+
+        tmp<volScalarField::Internal> fINT() const;
+
+        tmp<volScalarField::Internal> fSS
+        (
+            const volScalarField::Internal& Omega
+        ) const;
 
         tmp<volScalarField> Cmu(const volScalarField& S) const;
 
         tmp<volScalarField> BetaTS(const volScalarField& Rew) const;
 
-        tmp<volScalarField> fTaul
+        tmp<volScalarField::Internal> fTaul
         (
-            const volScalarField& lambdaEff,
-            const volScalarField& ktL,
+            const volScalarField::Internal& lambdaEff,
+            const volScalarField::Internal& ktL,
             const volScalarField& omega
         ) const;
 
@@ -157,7 +175,7 @@ class kkLOmega
 
 protected:
 
-    // Protected data
+    // Protected Data
 
         // Model coefficients
 
@@ -186,16 +204,20 @@ protected:
             dimensionedScalar Clambda_;
             dimensionedScalar CmuStd_;
             dimensionedScalar Prtheta_;
-            dimensionedScalar Sigmak_;
-            dimensionedScalar Sigmaw_;
+            dimensionedScalar sigmak_;
+            dimensionedScalar sigmaOmega_;
 
 
         // Fields
 
+            //- Laminar kinetic energy [m2/s2]
             volScalarField kt_;
+
+            //- Turbulent kinetic energy [m2/s2]
             volScalarField kl_;
+
+            //- Specific dissipation rate [1/s]
             volScalarField omega_;
-            volScalarField epsilon_;
 
             //- Wall distance
             //  Note: different to wall distance in parent RASModel
@@ -244,7 +266,7 @@ public:
         {
             return tmp<volScalarField>
             (
-                new volScalarField("DkEff", alphaT/Sigmak_ + nu())
+                new volScalarField("DkEff", alphaT/sigmak_ + nu())
             );
         }
 
@@ -253,29 +275,29 @@ public:
         {
             return tmp<volScalarField>
             (
-                new volScalarField("DomegaEff", alphaT/Sigmaw_ + nu())
+                new volScalarField("DomegaEff", alphaT/sigmaOmega_ + nu())
             );
         }
 
-        //- Return the laminar kinetic energy
+        //- Return the laminar kinetic energy field
         virtual tmp<volScalarField> kl() const
         {
             return kl_;
         }
 
-        //- Return the turbulence kinetic energy
+        //- Return the turbulent kinetic energy field
         virtual tmp<volScalarField> kt() const
         {
             return kt_;
         }
 
-        //- Return the turbulence specific dissipation rate
+        //- Return the specific dissipation rate field
         virtual tmp<volScalarField> omega() const
         {
             return omega_;
         }
 
-        //- Return the total fluctuation kinetic energy
+        //- Return the total kinetic energy field
         virtual tmp<volScalarField> k() const
         {
             return tmp<volScalarField>
@@ -294,17 +316,30 @@ public:
             );
         }
 
-        //- Return the total fluctuation kinetic energy dissipation rate
+        //- Return the total kinetic energy dissipation rate field
         virtual tmp<volScalarField> epsilon() const
         {
-            return epsilon_;
+            return tmp<volScalarField>
+            (
+                new volScalarField
+                (
+                    IOobject
+                    (
+                        "epsilon",
+                        mesh_.time().timeName(),
+                        mesh_
+                    ),
+                    kt_*omega_ + D(kl_) + D(kt_),
+                    omega_.boundaryField().types()
+                )
+            );
         }
 
         //- Validate the turbulence fields after construction
-        //  Update turbulence viscosity and other derived fields as requires
+        //  Update turbulent viscosity and other derived fields as requires
         virtual void validate();
 
-        //- Solve the turbulence equations and correct the turbulence viscosity
+        //- Solve the turbulence equations and correct the turbulent viscosity
         virtual void correct();
 };
 

@@ -40,61 +40,50 @@ namespace RASModels
 // * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * * //
 
 template<class BasicTurbulenceModel>
-tmp<volScalarField> realizableKE<BasicTurbulenceModel>::rCmu
+volScalarField realizableKE<BasicTurbulenceModel>::Cmu
 (
-    const volTensorField& gradU,
+    const volSymmTensorField& S,
     const volScalarField& S2,
-    const volScalarField& magS
+    const volScalarField& magS,
+    const volScalarField& magOmega2
 )
 {
-    tmp<volSymmTensorField> tS = dev(symm(gradU));
-    const volSymmTensorField& S = tS();
-
-    volScalarField W
+    // (SLSYZ:Eq. 21)
+    const volScalarField W
     (
-        (2*sqrt(2.0))*((S&S)&&S)
+        (2.0*sqrt(2.0))*((S & S) && S)
        /(
             magS*S2
-          + dimensionedScalar("small", dimensionSet(0, 0, -3, 0, 0), SMALL)
+          + dimensionedScalar("SMALL", dimless/pow3(dimTime), SMALL)
         )
     );
 
-    tS.clear();
-
-    volScalarField phis
+    // (SLSYZ:Eq. 21)
+    const volScalarField phis
     (
-        (1.0/3.0)*acos(min(max(sqrt(6.0)*W, -scalar(1)), scalar(1)))
+        (1.0/3.0)*acos(min(max(sqrt(6.0)*W, -1.0), 1.0))
     );
-    volScalarField As(sqrt(6.0)*cos(phis));
-    volScalarField Us(sqrt(S2/2.0 + magSqr(skew(gradU))));
 
+    // (SLSYZ:Eq. 21)
+    const volScalarField As(sqrt(6.0)*cos(phis));
+
+    // (SLSYZ:Eq. 20)
+    const volScalarField Us(sqrt(S2/2.0 + magOmega2));
+
+    // (SLSYZ:Eq. 19)
     return 1.0/(A0_ + As*Us*k_/epsilon_);
-}
-
-
-template<class BasicTurbulenceModel>
-void realizableKE<BasicTurbulenceModel>::correctNut
-(
-    const volTensorField& gradU,
-    const volScalarField& S2,
-    const volScalarField& magS
-)
-{
-    this->nut_ = rCmu(gradU, S2, magS)*sqr(k_)/epsilon_;
-    this->nut_.correctBoundaryConditions();
-    fv::options::New(this->mesh_).correct(this->nut_);
-
-    BasicTurbulenceModel::correctNut();
 }
 
 
 template<class BasicTurbulenceModel>
 void realizableKE<BasicTurbulenceModel>::correctNut()
 {
-    tmp<volTensorField> tgradU = fvc::grad(this->U_);
-    volScalarField S2(2*magSqr(dev(symm(tgradU()))));
-    volScalarField magS(sqrt(S2));
-    correctNut(tgradU(), S2, magS);
+    // (SLSYZ:Eq. 17.2)
+    this->nut_ = Cmu_*sqr(k_)/epsilon_;
+    this->nut_.correctBoundaryConditions();
+    fv::options::New(this->mesh_).correct(this->nut_);
+
+    BasicTurbulenceModel::correctNut();
 }
 
 
@@ -106,8 +95,7 @@ tmp<fvScalarMatrix> realizableKE<BasicTurbulenceModel>::kSource() const
         new fvScalarMatrix
         (
             k_,
-            dimVolume*this->rho_.dimensions()*k_.dimensions()
-            /dimTime
+            dimVolume*this->rho_.dimensions()*k_.dimensions()/dimTime
         )
     );
 }
@@ -121,8 +109,7 @@ tmp<fvScalarMatrix> realizableKE<BasicTurbulenceModel>::epsilonSource() const
         new fvScalarMatrix
         (
             epsilon_,
-            dimVolume*this->rho_.dimensions()*epsilon_.dimensions()
-            /dimTime
+            dimVolume*this->rho_.dimensions()*epsilon_.dimensions()/dimTime
         )
     );
 }
@@ -154,9 +141,10 @@ realizableKE<BasicTurbulenceModel>::realizableKE
         transport,
         propertiesName
     ),
+
     A0_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "A0",
             this->coeffDict_,
@@ -165,7 +153,7 @@ realizableKE<BasicTurbulenceModel>::realizableKE
     ),
     C2_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "C2",
             this->coeffDict_,
@@ -174,7 +162,7 @@ realizableKE<BasicTurbulenceModel>::realizableKE
     ),
     sigmak_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "sigmak",
             this->coeffDict_,
@@ -183,7 +171,7 @@ realizableKE<BasicTurbulenceModel>::realizableKE
     ),
     sigmaEps_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "sigmaEps",
             this->coeffDict_,
@@ -214,8 +202,31 @@ realizableKE<BasicTurbulenceModel>::realizableKE
             IOobject::AUTO_WRITE
         ),
         this->mesh_
+    ),
+    Cmu_
+    (
+        IOobject
+        (
+            "Cmu",
+            this->runTime_.timeName(),
+            this->mesh_,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE,
+            false
+        ),
+        this->mesh_,
+        dimensionedScalar(dimless, Zero)
     )
 {
+    if (mag(sigmak_.value()) < VSMALL || mag(sigmaEps_.value()) < VSMALL)
+    {
+        FatalErrorInFunction
+            << "Non-zero values are required for the model constants:" << nl
+            << "sigmak = " << sigmak_ << nl
+            << "sigmaEps = " << sigmaEps_ << nl
+            << exit(FatalError);
+    }
+
     bound(k_, this->kMin_);
     bound(epsilon_, this->epsilonMin_);
 
@@ -253,52 +264,64 @@ void realizableKE<BasicTurbulenceModel>::correct()
         return;
     }
 
-    // Local references
+    // Construct local convenience references
     const alphaField& alpha = this->alpha_;
     const rhoField& rho = this->rho_;
     const surfaceScalarField& alphaRhoPhi = this->alphaRhoPhi_;
     const volVectorField& U = this->U_;
-    volScalarField& nut = this->nut_;
+    const volScalarField& nut = this->nut_;
     fv::options& fvOptions(fv::options::New(this->mesh_));
 
     eddyViscosity<RASModel<BasicTurbulenceModel>>::correct();
 
-    volScalarField divU(fvc::div(fvc::absolute(this->phi(), U)));
+    const volScalarField::Internal divU
+    (
+        fvc::div(fvc::absolute(this->phi(), U))
+    );
 
-    tmp<volTensorField> tgradU = fvc::grad(U);
-    volScalarField S2(2*magSqr(dev(symm(tgradU()))));
-    volScalarField magS(sqrt(S2));
+    tmp<volTensorField> tgradU(fvc::grad(U));
 
-    volScalarField eta(magS*k_/epsilon_);
-    volScalarField C1(max(eta/(scalar(5) + eta), scalar(0.43)));
+    const volSymmTensorField S(dev(symm(tgradU())));
+    const volScalarField::Internal G
+    (
+        this->GName(), nut()*(2.0*(S() && tgradU().v()))
+    );
+    const volScalarField magOmega2(magSqr(skew(tgradU)));
+    const volScalarField S2(2.0*magSqr(S));
+    const volScalarField magS(sqrt(S2));
 
-    volScalarField G(this->GName(), nut*(tgradU() && dev(twoSymm(tgradU()))));
+    // (SLSYZ:Eq. 25)
+    const volScalarField::Internal eta(magS()*k_()/epsilon_());
+
+    // (SLSYZ:Eq. 25)
+    const volScalarField::Internal C1(max(eta/(5.0 + eta), 0.43));
+
 
     // Update epsilon and G at the wall
     epsilon_.boundaryFieldRef().updateCoeffs();
 
     // SAF: limiting thermo->nu(). If psiThermo is used rho might be < 0
     // temporarily when p < 0 then nu < 0 which needs limiting
-    volScalarField nuLimited
+    const volScalarField::Internal nuLimited
     (
         max
         (
-            this->nu(),
+            this->nu()(),
             dimensionedScalar(this->nu()().dimensions(), Zero)
         )
     );
 
-    // Dissipation equation
+    // Turbulent kinetic energy dissipation rate equation (SLSYZ:Eq. 23)
     tmp<fvScalarMatrix> epsEqn
     (
         fvm::ddt(alpha, rho, epsilon_)
       + fvm::div(alphaRhoPhi, epsilon_)
       - fvm::laplacian(alpha*rho*DepsilonEff(), epsilon_)
      ==
-        C1*alpha*rho*magS*epsilon_
+        C1*alpha()*rho()*magS()*epsilon_()
       - fvm::Sp
         (
-            C2_*alpha*rho*epsilon_/(k_ + sqrt(nuLimited*epsilon_)),
+            C2_*alpha()*rho()*epsilon_()/(k_() + sqrt(nuLimited*epsilon_())),
             epsilon_
         )
       + epsilonSource()
@@ -313,17 +336,16 @@ void realizableKE<BasicTurbulenceModel>::correct()
     bound(epsilon_, this->epsilonMin_);
 
 
-    // Turbulent kinetic energy equation
-
+    // Turbulent kinetic energy equation (SLSYZ:Eq. 22)
     tmp<fvScalarMatrix> kEqn
     (
         fvm::ddt(alpha, rho, k_)
       + fvm::div(alphaRhoPhi, k_)
       - fvm::laplacian(alpha*rho*DkEff(), k_)
      ==
-        alpha*rho*G
-      - fvm::SuSp(2.0/3.0*alpha*rho*divU, k_)
-      - fvm::Sp(alpha*rho*epsilon_/k_, k_)
+        alpha()*rho()*G
+      - fvm::SuSp(2.0/3.0*alpha()*rho()*divU, k_)
+      - fvm::Sp(alpha()*rho()*epsilon_()/k_(), k_)
       + kSource()
       + fvOptions(alpha, rho, k_)
     );
@@ -334,7 +356,9 @@ void realizableKE<BasicTurbulenceModel>::correct()
     fvOptions.correct(k_);
     bound(k_, this->kMin_);
 
-    correctNut(tgradU(), S2, magS);
+    Cmu_ = Cmu(S, S2, magS, magOmega2);
+
+    correctNut();
 }
 
 

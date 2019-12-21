@@ -32,15 +32,25 @@ Group
 
 Description
     Additional buoyancy generation/dissipation term applied to the
-    k and epsilon equations of the standard k-epsilon model.
+    \c k and \c epsilon equations of the standard k-epsilon model.
+
+    \heading Input fields
+    \plaintable
+        k        | Turbulent kinetic energy [m2/s2]
+        epsilon  | Turbulent kinetic energy dissipation rate [m2/s3]
+    \endplaintable
 
     Reference:
     \verbatim
-        Henkes, R.A.W.M., Van Der Vlugt, F.F. & Hoogendoorn, C.J. (1991).
-        Natural Convection Flow in a Square Cavity Calculated with
-        Low-Reynolds-Number Turbulence Models.
-        Int. J. Heat Mass Transfer, 34, 1543-1557.
+        Henkes, R. A. W. M., Van Der Vlugt, F. F., & Hoogendoorn, C. J. (1991).
+        Natural-convection flow in a square cavity calculated with
+        low-Reynolds-number turbulence models.
+        Int. J. of Heat and Mass Transfer, 34(2), 377-388.
+        DOI:10.1016/0017-9310(91)90258-G
     \endverbatim
+
+    The additional buoyancy terms are incorporated into kEpsilon model through
+    kSource() and epsilonSource() functions.
 
     This implementation is based on the density rather than temperature gradient
     extending the applicability to systems in which the density gradient may be
@@ -48,7 +58,7 @@ Description
     1/Prt coefficient is replaced by Cg to provide more general control of
     model.
 
-    The default model coefficients are
+    The default model coefficients are:
     \verbatim
         buoyantKEpsilonCoeffs
         {
@@ -96,7 +106,7 @@ class buoyantKEpsilon
 
 protected:
 
-    // Protected data
+    // Protected Data
 
         // Model coefficients
 
@@ -104,9 +114,13 @@ protected:
 
     // Protected Member Functions
 
-        tmp<volScalarField> Gcoef() const;
+        //- Buoyancy modification field
+        tmp<volScalarField::Internal> Gcoef() const;
 
+        //- Buoyancy modification on k
         virtual tmp<fvScalarMatrix> kSource() const;
+
+        //- Buoyancy modification on epsilon
         virtual tmp<fvScalarMatrix> epsilonSource() const;
 
 

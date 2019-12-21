@@ -34,24 +34,25 @@ Description
     Lien cubic non-linear low-Reynolds k-epsilon turbulence models for
     incompressible flows.
 
-    This turbulence model is described in:
+    Reference:
     \verbatim
-        Lien, F.S., Chen, W.L. & Leschziner, M.A. (1996).
-        Low-Reynolds-number eddy-viscosity modeling based on non-linear
-        stress-strain/vorticity relations.
-        Engineering Turbulence Modelling and Experiments 3, 91-100.
+    Standard model:
+        Lien, F. S., Chen, W. L., & Leschziner, M. A. (1996).
+        Low-Reynolds-number eddy-viscosity modelling based on non-linear
+        stress-strain/vorticity relations,
+        Engineering Turbulence Modelling and Measurements-3.
+        Rodi, W., Bergeles, G.(eds.), 91-100.
+        DOI:10.1016/B978-0-444-82463-9.50015-0
+    
+    Implementation:
+        https://personalpages.manchester.ac.uk/staff/david.d.apsley/turbmod.pdf
     \endverbatim
-
-    Implemented according to the specification in:
-    <a href=
-    "http://personalpages.manchester.ac.uk/staff/david.d.apsley/specturb.pdf"
-    >Apsley: Turbulence Models 2002</a>
 
     In addition to the low-Reynolds number damping functions support for
     wall-functions is also included to allow for low- and high-Reynolds number
     operation.
 
-See also
+SeeAlso
     Foam::incompressible::RASModels::ShihQuadraticKE
 
 SourceFiles
@@ -85,7 +86,7 @@ class LienCubicKE
 
 protected:
 
-    // Protected data
+    // Protected Data
 
         // Model coefficients
 
@@ -179,13 +180,13 @@ public:
             );
         }
 
-        //- Return the turbulence kinetic energy
+        //- Return the turbulent kinetic energy
         virtual tmp<volScalarField> k() const
         {
             return k_;
         }
 
-        //- Return the turbulence kinetic energy dissipation rate
+        //- Return the turbulent kinetic energy dissipation rate
         virtual tmp<volScalarField> epsilon() const
         {
             return epsilon_;

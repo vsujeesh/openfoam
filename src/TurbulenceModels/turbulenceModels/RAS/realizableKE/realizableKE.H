@@ -34,20 +34,22 @@ Description
     Realizable k-epsilon turbulence model for incompressible and compressible
     flows.
 
-    References:
-    \verbatim
-        Shih, T. H., Liou, W. W., Shabbir, A., Yang, Z., & Zhu, J. (1994).
-        A new k-epsilon eddy viscosity model for high Reynolds number
-        turbulent flows: Model development and validation.
-        NASA STI/Recon Technical Report N, 95, 11442.
+    \heading Input fields
+    \plaintable
+        k        | Turbulent kinetic energy [m2/s2]
+        epsilon  | Turbulent kinetic energy dissipation rate [m2/s3]
+    \endplaintable
 
+    Reference:
+    \verbatim
         Shih, T. H., Liou, W. W., Shabbir, A., Yang, Z., & Zhu, J. (1995).
-        A New k-epsilon Eddy Viscosity Model for High Reynolds Number
-        Turbulent Flows.
+        A new k-epsilon eddy viscosity model for high Reynolds number
+        turbulent flows.
         Computers and Fluids, 24(3), 227-238.
+        DOI:10.1016/0045-7930(94)00032-T
     \endverbatim
 
-    The default model coefficients are
+    The default model coefficients are (SLSYZ:Table 2):
     \verbatim
         realizableKECoeffs
         {
@@ -85,10 +87,18 @@ class realizableKE
 :
     public eddyViscosity<RASModel<BasicTurbulenceModel>>
 {
+    // Private Member Functions
+
+        //- No copy construct
+        realizableKE(const realizableKE&) = delete;
+
+        //- No copy assignment
+        void operator=(const realizableKE&) = delete;
+
 
 protected:
 
-    // Protected data
+    // Protected Data
 
         // Model coefficients
 
@@ -100,28 +110,31 @@ protected:
 
         // Fields
 
+            //- Turbulent kinetic energy [m2/s2]
             volScalarField k_;
+
+            //- Turbulent kinetic energy dissipation rate [m2/s3]
             volScalarField epsilon_;
+
+            //-
+            volScalarField Cmu_;
 
 
    // Protected Member Functions
 
-        tmp<volScalarField> rCmu
+        volScalarField Cmu
         (
-            const volTensorField& gradU,
+            const volSymmTensorField& S,
             const volScalarField& S2,
-            const volScalarField& magS
+            const volScalarField& magS,
+            const volScalarField& magOmega2
         );
 
-        virtual void correctNut
-        (
-            const volTensorField& gradU,
-            const volScalarField& S2,
-            const volScalarField& magS
-        );
-
+        //- Update nut with the latest available k, and epsilon
         virtual void correctNut();
+
         virtual tmp<fvScalarMatrix> kSource() const;
+
         virtual tmp<fvScalarMatrix> epsilonSource() const;
 
 
@@ -186,13 +199,13 @@ public:
             );
         }
 
-        //- Return the turbulence kinetic energy
+        //- Return the turbulent kinetic energy field
         virtual tmp<volScalarField> k() const
         {
             return k_;
         }
 
-        //- Return the turbulence kinetic energy dissipation rate
+        //- Return the turbulent kinetic energy dissipation rate field
         virtual tmp<volScalarField> epsilon() const
         {
             return epsilon_;
