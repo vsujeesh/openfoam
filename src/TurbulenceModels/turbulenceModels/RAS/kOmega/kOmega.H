@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2016 OpenFOAM Foundation
-    Copyright (C) 2019 OpenCFD Ltd.
+    Copyright (C) 2019-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -31,26 +31,56 @@ Group
     grpRASTurbulence
 
 Description
-    Standard high Reynolds-number k-omega turbulence model for
+    The standard k-omega turbulence closure model for high Reynolds-number
     incompressible and compressible flows.
 
-    References:
+    The model is a two-transport-equation linear-eddy-viscosity turbulence
+    closure model:
+      - Turbulent kinetic energy, \c k,
+      - Specific dissipation rate, \c omega.
+
+    Reference:
+    \verbatim
+        Standard model (Tag:W):
+            Wilcox, D. C. (2008).
+            Formulation of the k-w turbulence model revisited.
+            AIAA journal, 46(11), 2823-2838.
+            DOI:10.2514/1.36541
+
+        Low Reynolds-number modification (Tag:R):
+            Rumsey, C. (2016).
+            The Wilcox k-omega Turbulence Model.
+            [online] Turbulence Modeling Resource.
+            Available at: https://turbmodels.larc.nasa.gov/wilcox.html
+            [Accessed 28 Dec. 2019].
+
+            Wilcox, D. C. (2006).
+            Turbulence Modeling for CFD (3rd ed.).
+            La Canada, California: DCW Industries.
+            ISBN-13:978-1-928729-08-2
+    \endverbatim
+
+    The default model coefficients are (W:Eqs. 7, 10-13):
+    \verbatim
+        kOmegaCoeffs
+        {
+            betaStar    0.09;    // equivalent to 'Cmu'
+            gamma       0.52;    // equivalent to 'alpha'
+            beta0       0.0708;
+            CLim        0.875;
+            sigmaD      0.125;
+            sigmaK      0.6;
+            sigmaOmega  0.5;
+        }
+    \endverbatim
+
+Note:
+    Please note that prior to OpenFOAM-v2006, the implementation of k-omega
+    model was based on the previous version of the model:
     \verbatim
         Wilcox, D. C. (1998).
         Turbulence modeling for CFD
         (Vol. 2, pp. 103-217). La Canada, CA: DCW industries.
-    \endverbatim
-
-    The default model coefficients are
-    \verbatim
-        kOmegaCoeffs
-        {
-            Cmu         0.09;  // Equivalent to betaStar
-            alpha       0.52;
-            beta        0.072;
-            alphak      0.5;
-            alphaOmega  0.5;
-        }
     \endverbatim
 
 SourceFiles
@@ -80,23 +110,42 @@ class kOmega
 :
     public eddyViscosity<RASModel<BasicTurbulenceModel>>
 {
+    // Private Member Functions
+
+        //- No copy construct
+        kOmega(const kOmega&) = delete;
+
+        //- No copy assignment
+        void operator=(const kOmega&) = delete;
+
+        //- Round-jet function (W:Eqs. 12-13)
+        volScalarField::Internal fBetaFunc
+        (
+            const volTensorField::Internal& gradU
+        ) const;
+
 
 protected:
 
-    // Protected data
+    // Protected Data
 
         // Model coefficients
 
-            dimensionedScalar Cmu_;
-            dimensionedScalar beta_;
+            dimensionedScalar betaStar_;
             dimensionedScalar gamma_;
-            dimensionedScalar alphaK_;
-            dimensionedScalar alphaOmega_;
+            dimensionedScalar beta0_;
+            dimensionedScalar CLim_;
+            dimensionedScalar sigmaD_;
+            dimensionedScalar sigmaK_;
+            dimensionedScalar sigmaOmega_;
 
 
         // Fields
 
+            //- Turbulent kinetic energy [m2/s2]
             volScalarField k_;
+
+            //- Specific dissipation rate [1/s]
             volScalarField omega_;
 
 
@@ -138,10 +187,11 @@ public:
 
     // Member Functions
 
-        //- Read RASProperties dictionary
+        //- Re-read model coefficients if they have changed
         virtual bool read();
 
-        //- Return the effective diffusivity for k
+        //- Return the effective diffusivity for k (W:Eq. 8)
+        //  Variable change: rho*k/omega ~ nut
         tmp<volScalarField> DkEff() const
         {
             return tmp<volScalarField>
@@ -149,12 +199,13 @@ public:
                 new volScalarField
                 (
                     "DkEff",
-                    alphaK_*this->nut_ + this->nu()
+                    this->nu() + sigmaK_*k_/omega_
                 )
             );
         }
 
-        //- Return the effective diffusivity for omega
+        //- Return the effective diffusivity for omega (W:Eq. 9)
+
         tmp<volScalarField> DomegaEff() const
         {
             return tmp<volScalarField>
@@ -162,24 +213,24 @@ public:
                 new volScalarField
                 (
                     "DomegaEff",
-                    alphaOmega_*this->nut_ + this->nu()
+                    this->nu() + sigmaOmega_*k_/omega_
                 )
             );
         }
 
-        //- Return the turbulence kinetic energy
+        //- Return the turbulent kinetic energy field
         virtual tmp<volScalarField> k() const
         {
             return k_;
         }
 
-        //- Return the turbulence specific dissipation rate
+        //- Return the specific dissipation rate field
         virtual tmp<volScalarField> omega() const
         {
             return omega_;
         }
 
-        //- Return the turbulence kinetic energy dissipation rate
+        //- Return the turbulent kinetic energy dissipation rate field
         virtual tmp<volScalarField> epsilon() const
         {
             return tmp<volScalarField>
@@ -192,13 +243,13 @@ public:
                         this->mesh_.time().timeName(),
                         this->mesh_
                     ),
-                    Cmu_*k_*omega_,
+                    betaStar_*k_*omega_,
                     omega_.boundaryField().types()
                 )
             );
         }
 
-        //- Solve the turbulence equations and correct the turbulence viscosity
+        //- Solve the transport equations and correct the turbulent viscosity
         virtual void correct();
 };
 
