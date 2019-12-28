@@ -6,6 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2012-2016 OpenFOAM Foundation
+    Copyright (C) 2019 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -27,10 +28,20 @@ Class
     Foam::BinSum
 
 Description
-    Sums into bins
+    List container that partitions a given dataset into equal-width
+    bins of a specified data window, and returns the sum of dataset
+    elements in each bin.
+
+    The container can also accept an auxillary dataset and a main dataset,
+    wherein the specified data window can be applied onto the auxillary
+    dataset, and the corresponding-in-order elements of the main dataset
+    can be summed into the bins.
 
 SourceFiles
     BinSum.C
+
+SeeAlso
+    Test-BinSum.C
 
 \*---------------------------------------------------------------------------*/
 
@@ -43,7 +54,6 @@ SourceFiles
 
 namespace Foam
 {
-
 
 /*---------------------------------------------------------------------------*\
                           Class BinSum Declaration
@@ -59,26 +69,47 @@ class BinSum
 :
     public List
 {
-    // Private data
+    static_assert
+    (
+        std::is_same<IndexType, label>::value
+     || std::is_same<IndexType, scalar>::value,
+        "BinSum operates only in label/scalar arithmetic."
+    );
 
+    static_assert
+    (
+        std::is_same<CombineOp, plusEqOp<typename List::value_type>>::value,
+        "BinSum operates only for sum operations."
+    );
+
+
+    // Private Data
+
+        //- The lowest-edge value of the specified data window
         const IndexType min_;
 
+        //- The highest-edge value of the specified data window
         const IndexType max_;
 
+        //- Width of a bin
+        //  All bins have the same bin-width
+        //  Number of bins = window width / delta = (max - min) / delta
         const IndexType delta_;
 
-
-        //- Sum < lowest bin
+        //- Sum of all dataset elements smaller than
+        //- 'min_' outside of the data window
         typename List::value_type lowSum_;
 
-        //- Sum of >= highest bin
+        //- Sum of all dataset elements larger or equal
+        //- than 'max_' outside of the data window
         typename List::value_type highSum_;
+
 
 public:
 
     // Constructors
 
-        //- Construct given min, max, delta
+        //- Construct given min, max, and delta
         BinSum
         (
             const IndexType min,
@@ -86,51 +117,79 @@ public:
             const IndexType delta
         );
 
-        //- Construct given min, max, delta and data
+        //- Construct given min, max, delta, and dataset
         BinSum
         (
             const IndexType min,
             const IndexType max,
             const IndexType delta,
-            const UList<IndexType>& indexVals,
-            const List& vals,
+            const List& mainVals,
+            const CombineOp& cop = plusEqOp<typename List::value_type>()
+        );
+
+        //- Construct given min, max, delta, auxillary dataset, and main dataset
+        BinSum
+        (
+            const IndexType min,
+            const IndexType max,
+            const IndexType delta,
+            const UList<IndexType>& auxVals,
+            const List& mainVals,
+            const CombineOp& cop = plusEqOp<typename List::value_type>()
+        );
+
+
+    //- Destructor
+    ~BinSum() = default;
+
+
+    // Member Functions
+
+        //- Sum a dataset element into the corresponding bin
+        //- with an auxillary dataset element
+        void sumIntoBins
+        (
+            const IndexType& auxVal,
+            const typename List::const_reference mainVal,
+            const CombineOp& cop = plusEqOp<typename List::value_type>()
+        );
+
+        //- Sum dataset elements into corresponding bins
+        //- with an auxillary dataset
+        void sumIntoBins
+        (
+            const UList<IndexType>& auxVals,
+            const List& mainVals,
+            const CombineOp& cop = plusEqOp<typename List::value_type>()
+        );
+
+        //- Sum dataset elements into corresponding bins
+        void sumIntoBins
+        (
+            const List& mainVals,
             const CombineOp& cop = plusEqOp<typename List::value_type>()
         );
 
 
         // Access
 
-            //- Return the delta
+            //- Return delta_
             inline IndexType delta() const
             {
                 return delta_;
             }
 
-            //- Return the sum of all added elements < min
+            //- Return lowSum_
             inline const IndexType& lowSum() const
             {
                 return lowSum_;
             }
 
-            //- Return the sum of all added elements >= max
+            //- Return highSum_
             inline const IndexType& highSum() const
             {
                 return highSum_;
             }
-
-            void add
-            (
-                const IndexType& indexVal,
-                const typename List::const_reference val,
-                const CombineOp& cop = plusEqOp<typename List::value_type>()
-            );
-
-            void add
-            (
-                const UList<IndexType>& indexVals,
-                const List& vals,
-                const CombineOp& cop = plusEqOp<typename List::value_type>()
-            );
 };
 
 

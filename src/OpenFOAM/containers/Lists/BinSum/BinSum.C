@@ -6,6 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2012-2016 OpenFOAM Foundation
+    Copyright (C) 2019 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -37,7 +38,12 @@ Foam::BinSum<IndexType, List, CombineOp>::BinSum
     const IndexType delta
 )
 :
-    List(ceil((max-min)/delta), Zero),
+    List
+    (
+        (min < max && delta <= ceil(max - min) && SMALL < delta)
+      ? List(ceil((max - min)/delta), Zero)
+      : throw std::domain_error("Inconsistent min/max/delta combination.")
+    ),
     min_(min),
     max_(max),
     delta_(delta),
@@ -52,64 +58,89 @@ Foam::BinSum<IndexType, List, CombineOp>::BinSum
     const IndexType min,
     const IndexType max,
     const IndexType delta,
-    const UList<IndexType>& indexVals,
-    const List& vals,
+    const List& mainVals,
     const CombineOp& cop
 )
 :
-    List(ceil((max-min)/delta), Zero),
+    BinSum<IndexType, List>(min, max, delta, mainVals, mainVals, cop)
+{}
+
+
+template<class IndexType, class List, class CombineOp>
+Foam::BinSum<IndexType, List, CombineOp>::BinSum
+(
+    const IndexType min,
+    const IndexType max,
+    const IndexType delta,
+    const UList<IndexType>& auxVals,
+    const List& mainVals,
+    const CombineOp& cop
+)
+:
+    List
+    (
+        (min < max && delta <= ceil(max - min) && SMALL < delta)
+      ? List(ceil((max - min)/delta), Zero)
+      : throw std::domain_error("Inconsistent min/max/delta combination.")
+    ),
     min_(min),
     max_(max),
     delta_(delta),
     lowSum_(Zero),
     highSum_(Zero)
 {
-    forAll(indexVals, i)
-    {
-        add(indexVals[i], vals[i], cop);
-    }
+    sumIntoBins(auxVals, mainVals, cop);
 }
 
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
 template<class IndexType, class List, class CombineOp>
-void Foam::BinSum<IndexType, List, CombineOp>::add
+void Foam::BinSum<IndexType, List, CombineOp>::sumIntoBins
 (
-    const IndexType& indexVal,
-    const typename List::const_reference val,
+    const IndexType& auxVal,
+    const typename List::const_reference mainVal,
     const CombineOp& cop
 )
 {
-    if (indexVal < min_)
+    if (auxVal < min_)
     {
-        cop(lowSum_, val);
+        cop(lowSum_, mainVal);
     }
-    else if (indexVal >= max_)
+    else if (auxVal >= max_)
     {
-        cop(highSum_, val);
+        cop(highSum_, mainVal);
     }
     else
     {
-        label index = (indexVal-min_)/delta_;
-        cop(this->operator[](index), val);
+        label index = (auxVal - min_)/delta_;
+        cop(this->operator[](index), mainVal);
     }
 }
 
 
 template<class IndexType, class List, class CombineOp>
-void Foam::BinSum<IndexType, List, CombineOp>::add
+void Foam::BinSum<IndexType, List, CombineOp>::sumIntoBins
 (
-    const UList<IndexType>& indexVals,
-    const List& vals,
+    const UList<IndexType>& auxVals,
+    const List& mainVals,
     const CombineOp& cop
 )
 {
-    forAll(indexVals, i)
+    forAll(auxVals, i)
     {
-        add(indexVals[i], vals[i], cop);
+        sumIntoBins(auxVals[i], mainVals[i], cop);
     }
 }
 
+template<class IndexType, class List, class CombineOp>
+void Foam::BinSum<IndexType, List, CombineOp>::sumIntoBins
+(
+    const List& mainVals,
+    const CombineOp& cop
+)
+{
+    sumIntoBins(mainVals, mainVals, cop);
+}
 
 // ************************************************************************* //
