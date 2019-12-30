@@ -6,6 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2013-2016 OpenFOAM Foundation
+    Copyright (C) 2019 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -66,9 +67,6 @@ makeRASModel(RNGkEpsilon);
 #include "realizableKE.H"
 makeRASModel(realizableKE);
 
-#include "LaunderSharmaKE.H"
-makeRASModel(LaunderSharmaKE);
-
 #include "kOmega.H"
 makeRASModel(kOmega);
 
@@ -89,6 +87,9 @@ makeRASModel(SSG);
 
 #include "kEpsilonPhitF.H"
 makeRASModel(kEpsilonPhitF);
+
+#include "kEpsilonLRN.H"
+makeRASModel(kEpsilonLRN);
 
 
 // -------------------------------------------------------------------------- //
