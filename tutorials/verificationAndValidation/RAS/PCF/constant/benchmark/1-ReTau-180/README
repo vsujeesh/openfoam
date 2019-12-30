@@ -1,0 +1,4 @@
+y+u+.dat        = https://turbulence.oden.utexas.edu/data/MKM/chan180/profiles/chan180.means
+y+{uu+,vv+,ww+,uv+}.dat       = https://turbulence.oden.utexas.edu/data/MKM/chan180/profiles/chan180.reystress
+
+y+{e+,p+}.dat        = https://turbulence.oden.utexas.edu/data/MKM/chan180/balances/chan180.kbal

@@ -1,0 +1,94 @@
+#!/bin/sh
+cd ${0%/*} || exit 1                        # Run from this directory
+. $WM_PROJECT_DIR/bin/tools/RunFunctions    # Tutorial run functions
+
+if notTest $@
+then
+
+    # Test if gnuplot exists on the system
+    command -v gnuplot >/dev/null 2>&1 || {
+        echo "gnuplot not found - skipping graph creation" 1>&2
+        exit 1
+    }
+
+    #
+    timeDir=100000
+
+    # Re models
+    models=('kEpsilonChiF' 'kOmegaSST') 
+
+    # Blending approaches
+    blendings=('stepwise')
+
+    # yPlus vs scenario
+    scenarios=('-g2.887223348-m100')
+    
+    # Setting
+    setting="default"
+
+    # Benchmark
+    ReTau=('1-ReTau-180')
+    benchParams=('u+' 'uv+' 'k+')
+
+    # Output
+    outputNames=("${benchParams[@]}")
+
+
+
+    for retau in "${ReTau[@]}"
+    do
+        for scenario in "${scenarios[@]}"
+        do
+            for benchparam in "${benchParams[@]}"
+            do
+                results=()
+                resultTags=()
+
+                n=0
+                for model in "${models[@]}"
+                do
+                    for blending in "${blendings[@]}"
+                    do
+                        results[$n]="ztore/${retau}-"${model}${scenario}"-b"${blending}"-s"${setting}"/postProcessing/sample/"${timeDir}"/y+"${benchparam}".dat"
+                        resultTags[$n]=${model}${scenario}"-"${blending}
+                        n=$(($n+1))
+                    done
+                done
+
+                graphName="y+"${benchparam}${retau}${scenario}${setting}".png"
+                benchFile="constant/benchmark/"${retau}"/y+"${benchparam}".dat"
+
+                echo "${benchparam}"
+
+                gnuplot<<EOF
+                    set terminal pngcairo font "helvetica,20" size 1000, 1000
+                    set output "$graphName"
+
+                    benchF="${benchFile}"
+
+                    resultTags="${resultTags[*]}"
+                    results="${results[*]}"
+
+                    set xlabel "y^+"
+                    set ylabel "${benchparam}" rotate by 0
+
+                    set lmargin 10
+                    set rmargin 1.5
+                    set tmargin 0.25
+                    set bmargin 3.25
+
+                    set logscale x
+                    set grid
+                    set key left top
+                    plot \
+                        benchF u (\$1):(\$2):(0.1) t "DNS" w points pt 7 lc "red" lw 2, \
+                        for [i=1:words(results)] word(results, i) u (\$1):(\$2) t word(resultTags, i) with lines lw 2.5
+EOF
+            done
+        done
+    done
+
+    plotDir="ztore/0-plots"
+    [ -d $plotDir ] || \mkdir -p $plotDir
+    \mv *png $plotDir
+fi

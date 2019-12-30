@@ -19,7 +19,12 @@ simulationType  RAS;
 
 RAS
 {
-    RASModel        LaunderSharmaKE;
+    RASModel        kEpsilonLRN;
+
+    kEpsilonLRNCoeffs
+    {
+        variant     LaunderSharma;
+    }
 
     turbulence      on;
 

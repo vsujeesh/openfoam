@@ -1,0 +1,126 @@
+#------------------------------------------------------------------------------
+
+Overview
+
+    Decaying homogeneous isotropic turbulence (DHIT) can be considered as the
+    initial step in any turbulence model benchmark whilst, in particular, any
+    cross-correlation in its statistics is ideally zero.
+
+    Aim: Verification of the synthetic inflow turbulence boundary conditions
+         without interactions due to cross correlations.
+
+    - turbulentDigitalFilter variant=digitalFilter
+    - turbulentDigitalFilter variant=reducedDigitalFilter
+    - turbulentDFSEM
+
+    Benchmark (Physical phenomenon):
+
+        The DHIT benchmark is a stationary-grid approximately-isotropic decaying
+        turbulent flow experiment from (Comte-Bellot and Corrsin, 1971).
+
+    Benchmark scenario:
+
+        Synthetic time-series were based upon the experimental measurements
+        at 42M section, where M=0.0508[m] is the characteristic size.
+
+    Resources:
+
+        Comte-Bellot, G., & Corrsin, S. (1971). (tag:CC)
+        Simple Eulerian time correlation of full-and
+        narrow-band velocity signals in grid-generated,
+        'isotropic' turbulence.
+        Journal of Fluid Mechanics, 48(2), 273-337.
+        DOI:10.1017/S0022112071001599
+
+        AGARD (1998). (tag:A)
+        A selection of test cases for the validation of
+        large-eddy simulations of turbulent flows.
+        Technical Report AGARD-AR-345, North Atlantic Treaty Organization.
+
+    Physical domain:
+
+        Please refer to (A:p. 59) and (CC:p. 280).
+
+    Physical modelling:
+
+    - The governing equations for:
+        - Newtonian, single-phase, incompressible fluid flows,
+        excluding any thermal chemical, electromagnetic and scalar interactions.
+    - Mathematical approach for the turbulence modelling:
+        - Implicitly-filtered large eddy simulation (IFLES; not implicit LES).
+    - Turbulence closure model:
+        - Smagorinsky model with van Driest wall-damping function.
+    - The set of input (CC:p. 299):
+        - Mean longitudinal flow speed, Uc = 12.7 [m/s]
+        - Fluid kinematic viscosity, nuLam = 1.4941e-5 [m2/s]
+          (based on Re_M = 3.4e4 [-], and Uo = 10 [m/s])
+        - One-point normal correlations, UPrime2Mean_ii = 4.9284e-2 [m2/s2]
+        - One-point anisotropic correlations, UPrime2Mean_ij = 0.0 [m2/s2]
+        - Longitudinal integral length scale, Llong = 2.4e-2 [m]
+        - Transverse integral length scale, Ltrans = 1.27e-2 [m]
+
+    Computational domain modelling:
+
+    - Rectangular prism
+    - (x1, x2, x3)
+        = (7.62, 1.524e-1, 1.524e-1) [m]
+        = (300, 6, 6) [Llong]
+        = (600, 12, 12) [Ltrans]
+        = (streamwise, spanwise, ground-normal) directions
+
+    Computational domain discretisation:
+
+    - Spatial resolution:
+        - Cubic cells
+        - 10 cells per Llong
+        - (x1, x2, x3) = (3000, 60, 60) cells
+    - Temporal resolution:
+        - Time-step size = 5e-5 [s]
+
+
+
+// Re_tau can be changed via changing only nuFluid for this channel domain.        
+// Pressure-driven channel flow force balance:                                     
+// (P_outlet - P_inlet)*2*delta = L*2*tau                                          
+// delta: Channel half-height                                                      
+// P: pressure                                                                     
+// L: Channel length                                                               
+//                                                                                 
+// P_inlet = 1.0 [m2/s2]                                                           
+// P_outlet = 0.0 [m2/s2]                                                          
+// delta = 1.0 [m]                                                                 
+// L = 1.0 [m]                                                                     
+// tau (Computed) = 1.0 [m2/s2]                                                    
+// uTau = sqrt(tau/rho)                                                            
+// rho = 1.0 [-]                                                                   
+// uTau = 1.0 [m/s]                                                                
+//                                                                                 
+// Re_tau = uTau * delta / nuFluid                                                 
+// nuFluid = 1/ReTau                                                               
+// nuFluid: Kinematic viscosity of fluid                                           
+                                                                                   
+// ### Re_tau = 180, 395, 590 cases:                                               
+// # Reference: DNS of Turbulent Channel Flow up to Re_tau=590, 1999,              
+// #            Physics of Fluids, vol 11, 943-945.                                
+// # Numerical Method: Kim, Moin & Moser, 1987, J. Fluid Mech. vol 177, 133-166 
+// Re_tau = 180 => Re_tau_actual = 178.12 => nu=0.0056141926790927                 
+// Re_tau = 395 => Re_tau_actual = 392.24 => nu=0.0025494595145829                 
+// Re_tau = 590 => Re_tau_actual = 587.19 => nu=0.0017030262776955                 
+                                                                                   
+// ### Re_tau = 800 case:                                                          
+// # Reference: 10.1016/j.ijheatfluidflow.2004.02.016 Table-1                   
+// Re_tau = 800 => Re_tau_actual = 800 (Assumed) => nu=0.00125                  
+                                                                                
+// ### Re = 80M case:                                                           
+// # Reference: https://turbmodels.larc.nasa.gov/channelflow_val.html           
+// Re_tau = ?                                                                   
+                                                                                
+                                                                                
+transportModel  Newtonian;                                                      
+                                                                                
+nu              XXX;                                                            
+                                                                                
+// ************************************************************************* //
+
+
+#------------------------------------------------------------------------------

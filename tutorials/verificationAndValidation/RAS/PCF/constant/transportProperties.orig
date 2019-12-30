@@ -1,0 +1,59 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v1906                                 |
+|   \\  /    A nd           | Web:      www.OpenFOAM.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      transportProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Re_tau can be changed via changing only nuFluid for this channel domain.
+// Pressure-driven channel flow force balance:
+// (P_outlet - P_inlet)*2*delta = L*2*tau
+// delta: Channel half-height
+// P: pressure
+// L: Channel length
+//
+// P_inlet = 1.0 [m2/s2]
+// P_outlet = 0.0 [m2/s2]
+// delta = 1.0 [m]
+// L = 1.0 [m]
+// tau (Computed) = 1.0 [m2/s2]
+// uTau = sqrt(tau/rho)
+// rho = 1.0 [-]
+// uTau = 1.0 [m/s]
+//
+// Re_tau = uTau * delta / nuFluid
+// nuFluid = 1/ReTau
+// nuFluid: Kinematic viscosity of fluid
+
+// ### Re_tau = 180, 395, 590 cases:
+// # Reference: DNS of Turbulent Channel Flow up to Re_tau=590, 1999,
+// #            Physics of Fluids, vol 11, 943-945.
+// # Numerical Method: Kim, Moin & Moser, 1987, J. Fluid Mech. vol 177, 133-166 
+// Re_tau = 180 => Re_tau_actual = 178.12 => nu=0.0056141926790927
+// Re_tau = 395 => Re_tau_actual = 392.24 => nu=0.0025494595145829
+// Re_tau = 590 => Re_tau_actual = 587.19 => nu=0.0017030262776955
+
+// ### Re_tau = 800 case:
+// # Reference: 10.1016/j.ijheatfluidflow.2004.02.016 Table-1
+// Re_tau = 800 => Re_tau_actual = 800 (Assumed) => nu=0.00125
+
+// ### Re = 80M case:
+// # Reference: https://turbmodels.larc.nasa.gov/channelflow_val.html
+// Re_tau = ?
+
+
+transportModel  Newtonian;
+
+nu              XXX;
+
+// ************************************************************************* //

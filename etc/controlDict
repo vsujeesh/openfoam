@@ -269,12 +269,7 @@ DebugSwitches
     LISA                0;
     LRR                 0;
     LRRDiffStress       0;
-    LamBremhorstKE      0;
-    LaunderGibsonRSTM   0;
-    LaunderSharmaKE     0;
     LienCubicKE         0;
-    LienCubicKELowRe    0;
-    LienLeschzinerLowRe 0;
     MB                  0;
     MC                  0;
     MCV                 0;

@@ -2,33 +2,44 @@
 | =========                 |                                                 |
 | \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
 |  \\    /   O peration     | Version:  v1912                                 |
-|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|   \\  /    A nd           | Web:      www.openfoam.com                      |
 |    \\/     M anipulation  |                                                 |
 \*---------------------------------------------------------------------------*/
 FoamFile
 {
     version     2.0;
     format      ascii;
-    class       dictionary;
-    location    "constant";
-    object      turbulenceProperties;
+    class       volScalarField;
+    object      k;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-simulationType  RAS;
+dimensions      [0 2 -2 0 0 0 0];
 
-RAS
+internalField   uniform 0.325;
+
+boundaryField
 {
-    RASModel        kEpsilonLRN;
-
-    kEpsilonLRNCoeffs
+    lowerWall
     {
-        variant     LaunderSharma;
+        type            fixedValue;
+        value           uniform 1e-10;
     }
 
-    turbulence      on;
+    upperWall
+    {
+        type            symmetry;
+    }
 
-    printCoeffs     on;
+    "inlet|outlet"
+    {
+        type            zeroGradient;
+    }
+
+    defaultFaces
+    {
+        type            empty;
+    }
 }
 
 
