@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2018 OpenCFD Ltd.
+    Copyright (C) 2018-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -26,11 +26,43 @@ License
 Class
     Foam::boundaryToCell
 
+Group
+    grpCellSources
+
 Description
     A topoSetCellSource to select all external (boundary) faces.
 
-    \heading Dictionary parameters
-    None
+Usage
+    Minimal example by using \f$system/topoSetDict.actions\f$:
+    \verbatim
+    {
+        // Mandatory entries
+        name        <cellSetName>;
+        type        cellSet;
+        action      <action>;
+        source      boundaryToCell;
+    }
+    \endverbatim
+
+    where the entries mean:
+    \table
+      Property     | Description                        | Type | Req'd | Dflt
+      name         | Name of cellSet                    | word |  yes  | -
+      type         | Type name: cellSet                 | word |  yes  | -
+      action       | PENDING                            | word |  yes  | -
+      source       | Source name: boundaryToCell        | word |  yes  | -
+    \endtable
+
+    Options for the \c action entry:
+    \verbatim
+        - new
+        - add
+        - subtract
+    \endverbatim
+
+See also
+    Foam::topoSetCellSource
+    Foam::patchToCell
 
 SourceFiles
     boundaryToCell.C
@@ -55,7 +87,7 @@ class boundaryToCell
 :
     public topoSetCellSource
 {
-    // Private data
+    // Private Data
 
         //- Add usage string
         static addToUsageTable usage_;
