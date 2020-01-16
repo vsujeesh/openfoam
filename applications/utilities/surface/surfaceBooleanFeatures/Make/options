@@ -22,4 +22,5 @@ EXE_INC = \
 EXE_LIBS = \
     -lsurfMesh \
     -lmeshTools \
-    $(LINK_FLAGS)
+    $(LINK_FLAGS) \
+    ${CGAL_LIBS}        /* empty if NO_CGAL */

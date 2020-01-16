@@ -27,6 +27,8 @@ EXE_LIBS = \
     -lcv2DMesh \
     -lconformalVoronoiMesh \
     -lmeshTools \
+    -lfileFormats \
+    -lsurfMesh \
     -ldynamicMesh \
     -ldecompositionMethods \
     -L$(FOAM_LIBBIN)/dummy \

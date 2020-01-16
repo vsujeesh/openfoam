@@ -27,6 +27,8 @@ EXE_LIBS = \
     ${CGAL_LIBS} \
     -lconformalVoronoiMesh \
     -lmeshTools \
+    -lfileFormats \
+    -lsurfMesh \
     -ldecompositionMethods \
     -ldecompose \
     -L$(FOAM_LIBBIN)/dummy \
