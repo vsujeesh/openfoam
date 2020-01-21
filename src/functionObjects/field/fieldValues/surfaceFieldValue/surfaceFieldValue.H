@@ -521,7 +521,7 @@ protected:
 
 
         //- Output file header information
-        virtual void writeFileHeader(Ostream& os) const;
+        virtual void writeFileHeader(Ostream& os);
 
 
 public:
