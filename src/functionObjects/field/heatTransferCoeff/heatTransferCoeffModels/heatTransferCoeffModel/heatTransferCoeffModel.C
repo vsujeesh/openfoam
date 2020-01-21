@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2017 OpenCFD Ltd.
+    Copyright (C) 2017-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -30,6 +30,7 @@ License
 #include "fluidThermo.H"
 #include "turbulentTransportModel.H"
 #include "turbulentFluidThermoModel.H"
+#include "phaseSystem.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -88,6 +89,28 @@ Foam::heatTransferCoeffModel::q() const
         for (label patchi : patchSet_)
         {
             q[patchi] = alphabf[patchi]*hebf[patchi].snGrad();
+        }
+    }
+    else if (mesh_.foundObject<phaseSystem>("phaseProperties"))
+    {
+        const phaseSystem& fluid =
+        (
+            mesh_.lookupObject<phaseSystem>("phaseProperties")
+        );
+        
+        for (label patchi : patchSet_)
+        {
+            forAll(fluid.phases(), phasei)
+            {
+                const phaseModel& phase = fluid.phases()[phasei];
+                const fvPatchScalarField& alpha = 
+                    phase.boundaryField()[patchi];
+                const volScalarField& he = phase.thermo().he();
+                const volScalarField::Boundary& hebf = he.boundaryField();
+                
+                q[patchi] += 
+                    alpha*phase.alphaEff(patchi)()*hebf[patchi].snGrad();
+            }
         }
     }
     else
