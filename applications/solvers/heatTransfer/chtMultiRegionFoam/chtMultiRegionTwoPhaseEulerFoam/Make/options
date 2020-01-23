@@ -38,4 +38,5 @@ EXE_LIBS = \
     -lregionModels \
     -lsampling \
     -lreactingTwoPhaseSystem \
+    -lreactingPhaseSystem
 
