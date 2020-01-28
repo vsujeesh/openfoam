@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2014 OpenFOAM Foundation
-    Copyright (C) 2015-2019 OpenCFD Ltd.
+    Copyright (C) 2015-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -87,15 +87,13 @@ Foam::fileName Foam::surfaceWriters::ensightWriter::writeUncollated()
 
         printTimeset(osCase, 1, 0.0);
 
-        ensightPartFaces ensPart
+        ensightOutputSurface part
         (
-            0,
             osGeom.name().name(),
             surf.points(),
-            surf.faces(),
-            true // contiguous points
+            surf.faces()
         );
-        osGeom << ensPart;
+        part.write(osGeom); // serial
     }
 
     wroteGeom_ = true;
@@ -212,15 +210,14 @@ Foam::fileName Foam::surfaceWriters::ensightWriter::writeUncollated
         osCase << "# end" << nl;
 
 
-        ensightPartFaces ensPart
+        // Ensight Geometry
+        ensightOutputSurface part
         (
-            0,
             osGeom.name().name(),
             surf.points(),
-            surf.faces(),
-            true // contiguous points
+            surf.faces()
         );
-        osGeom << ensPart;
+        part.write(osGeom); // serial
 
         // Write field
         osField.writeKeyword(ensightPTraits<Type>::typeName);
@@ -229,19 +226,19 @@ Foam::fileName Foam::surfaceWriters::ensightWriter::writeUncollated
         {
             ensightOutput::Serial::writePointField
             (
+                osField,
                 tfield(),
-                ensPart,
-                osField
+                part
                 // serial
             );
         }
         else
         {
-            ensightOutput::Detail::writeFaceField
+            ensightOutput::Detail::writeField
             (
-                tfield(),
-                ensPart,
                 osField,
+                tfield(),
+                part,
                 false // serial
             );
         }

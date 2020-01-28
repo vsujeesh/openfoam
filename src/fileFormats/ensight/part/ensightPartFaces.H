@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2015 OpenFOAM Foundation
-    Copyright (C) 2016-2019 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -32,6 +32,8 @@ Description
 
 SourceFiles
     ensightPartFaces.C
+    ensightPartFacesAddr.C
+    ensightPartFacesIO.C
 
 \*---------------------------------------------------------------------------*/
 
@@ -40,7 +42,8 @@ SourceFiles
 
 #include "ensightPart.H"
 #include "ensightFaces.H"
-#include "typeInfo.H"
+#include "polyMesh.H"
+#include <memory>
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -53,51 +56,52 @@ namespace Foam
 
 class ensightPartFaces
 :
-    public ensightFaces,
-    public ensightPart
+    public ensightFaces
 {
-    // Private data
-
-        //- Start offset for patch
-        const label start_;
-
-        //- Patch index
-        const label patchIndex_;
-
-        //- The referenced faces
-        const faceList& faces_;
+    // Private Data
 
         //- The referenced pointField
         const pointField& points_;
 
+        //- The referenced faces
+        const faceList& faces_;
+
         //- Can skip local point renumbering when points are contiguous
-        const bool contiguousPoints_;
+        bool contiguousPoints_;
+
+
+    // Demand-driven data
+
+        //- The number of points used
+        mutable label nPointsUsed_;
+
+        //- Map global to local indices, with -1 for ununsed points
+        mutable std::unique_ptr<labelList> localPointMap_;
 
 
     // Private Member Functions
 
-        //- Track points used
-        localPoints calcLocalPoints() const;
+        //- Calculate the points used
+        void calcLocalPoints() const;
 
-        //- Element connectivity
-        void writeConnectivity
-        (
-            ensightGeoFile&,
-            const word& key,
-            const labelUList& idList,
-            const labelUList& pointMap
-        ) const;
+        //- Return the number of unique points (demand-driven)
+        label getPointsUsed() const;
+
+        //- Return the global to local indices (demand-driven)
+        labelList& getPointMap() const;
 
 
         //- Helper: write connectivity
-        void writeConnectivity
+        static void writeConnectivity
         (
-            ensightGeoFile&,
-            const word& key,
-            const faceList&,
-            const labelUList& idList,
+            ensightGeoFile& os,
+            const ensightFaces::elemType etype,
+            const UIndirectList<face>& faces,
             const labelUList& pointMap
-        ) const;
+        );
+
+        //- Write processor-local (serial) geometry
+        void writeSerial(ensightGeoFile& os) const;
 
 
         //- No copy construct
@@ -109,17 +113,12 @@ class ensightPartFaces
 
 public:
 
-    //- Runtime type information
-    TypeName("ensightFaces");
-
-
     // Constructors
 
-        //- Construct part with 0-based index, description, points and faces
+        //- Construct from points and faces.
         //  Can skip local point renumbering when points are contiguous
         ensightPartFaces
         (
-            label partIndex,
             const string& description,
             const pointField& points,
             const faceList& faces,
@@ -130,19 +129,17 @@ public:
         //- Part receives the name of the patch unless otherwise specified.
         ensightPartFaces
         (
-            label partIndex,
             const polyMesh& mesh,
             const polyPatch& patch,
-            const string& partName = ""
+            const string& partName = string::null
         );
 
         //- Construct from polyPatch
         //- Part receives the name of the patch unless otherwise specified.
-        ensightPartFaces
+        explicit ensightPartFaces
         (
-            label partIndex,
             const polyPatch& patch,
-            const string& partName = ""
+            const string& partName = string::null
         );
 
 
@@ -152,42 +149,11 @@ public:
 
     // Member Functions
 
-    // Access
+        //- Clear any demand-driven data
+        void clearOut();
 
-        //- Part index (0-based)
-        virtual label index() const
-        {
-            return ensightFaces::index();
-        }
-
-
-        //- Number of elements in this part
-        virtual label size() const
-        {
-            return ensightFaces::size();
-        }
-
-
-        //- Return the patch index, -1 when not in use.
-        inline label patchIndex() const
-        {
-            return patchIndex_;
-        }
-
-
-    // Output
-
-        //- Write summary information about the object
-        virtual void writeSummary(Ostream& os) const;
-
-        //- Print various types of debugging information
-        virtual void dumpInfo(Ostream& os) const;
-
-        //- Write geometry
+        //- Write geometry (serial only)
         virtual void write(ensightGeoFile& os) const;
-
-        //- Helper: write geometry given the pointField
-        virtual void write(ensightGeoFile& os, const pointField& points) const;
 };
 
 

@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2016-2019 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -46,7 +46,7 @@ Description
 namespace Foam
 {
 
-// Forward declarations
+// Forward Declarations
 class ensightMesh;
 
 namespace ensightOutput
@@ -63,18 +63,18 @@ namespace Detail
 template<class Type>
 bool writeVolField
 (
+    ensightFile& os,
     const GeometricField<Type, fvPatchField, volMesh>& vf,
-    const ensightMesh& ensMesh,
-    ensightFile& os
+    const ensightMesh& ensMesh
 );
 
 //- Write point field component-wise
 template<class Type>
 bool writePointField
 (
+    ensightFile& os,
     const GeometricField<Type, pointPatchField, pointMesh>& pf,
-    const ensightMesh& ensMesh,
-    ensightFile& os
+    const ensightMesh& ensMesh
 );
 
 } // End namespace Detail
@@ -88,9 +88,9 @@ bool writePointField
 template<class Type>
 bool writeVolField
 (
-    const GeometricField<Type, fvPatchField, volMesh>&,
-    const ensightMesh& ensMesh,
     ensightFile& os,
+    const GeometricField<Type, fvPatchField, volMesh>& vf,
+    const ensightMesh& ensMesh,
     const bool nodeValues = false
 );
 
@@ -102,33 +102,13 @@ bool writeVolField
 namespace Serial
 {
 
-//- Write volume field component-wise for specified faces
-template<class Type>
-bool writeVolField
-(
-    const GeometricField<Type, fvPatchField, volMesh>& vf,
-    const ensightPartFaces& part,
-    ensightFile& os
-);
-
-
-//- Write volume field component-wise for specified cells
-template<class Type>
-bool writeVolField
-(
-    const GeometricField<Type, fvPatchField, volMesh>& vf,
-    const ensightPartCells& part,
-    ensightFile& os
-);
-
-
 //- Write volume field component-wise
 template<class Type>
 bool writeVolField
 (
+    ensightFile& os,
     const GeometricField<Type, fvPatchField, volMesh>& vf,
-    const ensightParts& list,
-    ensightFile& os
+    const ensightParts& list
 );
 
 } // End namespace Serial

@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2016-2017 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -25,31 +25,27 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "error.H"
+// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-inline const char* Foam::ensightFaces::key(const enum elemType what)
+inline void Foam::ensightFaces::add(const elemType etype, label id, bool flip)
 {
-    return elemNames[what];
+    // Linear addressing location
+    const label index = offsets_[etype] + sizes_[etype]++;
+
+    addressing()[index] = id;
+
+    if (flipMap_.size())
+    {
+        flipMap_[index] = flip;
+    }
 }
 
 
-inline Foam::label Foam::ensightFaces::index() const
+// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+inline const char* Foam::ensightFaces::key(const elemType etype)
 {
-    return index_;
-}
-
-
-inline Foam::label& Foam::ensightFaces::index()
-{
-    return index_;
-}
-
-
-inline Foam::label Foam::ensightFaces::size() const
-{
-    return address_.size();
+    return elemNames[etype];
 }
 
 
@@ -59,36 +55,34 @@ inline const Foam::FixedList<Foam::label,3>& Foam::ensightFaces::totals() const
 }
 
 
-inline Foam::label Foam::ensightFaces::total(const enum elemType what) const
+inline Foam::label Foam::ensightFaces::total(const elemType etype) const
 {
-    return sizes_[what];
+    return sizes_[etype];
 }
 
 
-inline Foam::label Foam::ensightFaces::size(const enum elemType what) const
+inline Foam::label Foam::ensightFaces::size(const elemType etype) const
 {
-    return slices_[what].size();
+    return (offsets_[etype+1] - offsets_[etype]);
 }
 
 
-inline Foam::label Foam::ensightFaces::offset(const enum elemType what) const
+inline Foam::labelRange Foam::ensightFaces::range(const elemType etype) const
 {
-    return slices_[what].start();
+    return labelRange(offsets_[etype], offsets_[etype+1] - offsets_[etype]);
 }
 
 
-inline const Foam::labelUList Foam::ensightFaces::faceIds
-(
-    const enum elemType what
-) const
+inline const Foam::labelList& Foam::ensightFaces::faceIds() const
 {
-    return address_[slices_[what]];
+    return addressing();
 }
 
 
-inline const Foam::labelUList& Foam::ensightFaces::faceIds() const
+inline const Foam::labelUList
+Foam::ensightFaces::faceIds(const elemType etype) const
 {
-    return address_;
+    return addressing()[range(etype)];
 }
 
 
@@ -98,9 +92,15 @@ inline const Foam::boolList& Foam::ensightFaces::flipMap() const
 }
 
 
-inline Foam::label Foam::ensightFaces::operator[](const label i) const
+inline Foam::labelList Foam::ensightFaces::localIds() const
 {
-    return address_[i];
+    return localAddressing();
+}
+
+
+inline Foam::labelList Foam::ensightFaces::localIds(const elemType etype) const
+{
+    return localAddressing(range(etype));
 }
 
 

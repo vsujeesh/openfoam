@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2016 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -45,41 +45,24 @@ inline Foam::IOstream::streamFormat Foam::ensightMesh::format() const
 }
 
 
-inline bool Foam::ensightMesh::useInternalMesh() const
+inline const Foam::Map<Foam::ensightCells>&
+Foam::ensightMesh::cellZoneParts() const
 {
-    return options_->useInternalMesh();
+    return cellZoneParts_;
 }
 
 
-inline bool Foam::ensightMesh::useBoundaryMesh() const
+inline const Foam::Map<Foam::ensightFaces>&
+Foam::ensightMesh::faceZoneParts() const
 {
-    return options_->useBoundaryMesh();
+    return faceZoneParts_;
 }
 
 
-inline const Foam::ensightCells& Foam::ensightMesh::meshCells() const
+inline const Foam::Map<Foam::ensightFaces>&
+Foam::ensightMesh::boundaryParts() const
 {
-    return meshCells_;
-}
-
-
-inline const Foam::Map<Foam::word>& Foam::ensightMesh::patches() const
-{
-    return patchLookup_;
-}
-
-
-inline const Foam::HashTable<Foam::ensightFaces>&
-Foam::ensightMesh::boundaryPatchFaces() const
-{
-    return boundaryPatchFaces_;
-}
-
-
-inline const Foam::HashTable<Foam::ensightFaces>&
-Foam::ensightMesh::faceZoneFaces() const
-{
-    return faceZoneFaces_;
+    return boundaryParts_;
 }
 
 

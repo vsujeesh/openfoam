@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2016 OpenFOAM Foundation
-    Copyright (C) 2016-2019 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -34,8 +34,6 @@ License
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::ensightParts::ensightParts(const polyMesh& mesh)
-:
-    StorageType()
 {
     recalculate(mesh);
 }
@@ -45,9 +43,7 @@ Foam::ensightParts::ensightParts(const polyMesh& mesh)
 
 void Foam::ensightParts::recalculate(const polyMesh& mesh)
 {
-    StorageType::clear();
-
-    label nPart = 0;
+    this->clear();
 
     // Track which cells are in a zone or not
     bitSet selection(mesh.nCells());
@@ -58,14 +54,14 @@ void Foam::ensightParts::recalculate(const polyMesh& mesh)
         if (returnReduce(!zn.empty(), orOp<bool>()))
         {
             selection.set(zn);
-            this->append(new ensightPartCells(nPart++, mesh, zn));
+            this->append(new ensightPartCells(mesh, zn));
         }
     }
 
-    if (!nPart)
+    if (this->empty())
     {
-        // No zones at all? - do entire mesh. Name as per ensightMesh
-        this->append(new ensightPartCells(nPart++, mesh, "internalMesh"));
+        // No zones? - do entire mesh. Name as per ensightMesh
+        this->insert(new ensightPartCells(mesh, "internalMesh"));
     }
     else
     {
@@ -74,27 +70,46 @@ void Foam::ensightParts::recalculate(const polyMesh& mesh)
 
         if (returnReduce(selection.any(), orOp<bool>()))
         {
-            this->append
+            // Place as first in the list
+            this->insert
             (
-                new ensightPartCells(nPart++, mesh, selection, "__internal__")
+                new ensightPartCells(mesh, selection, "__internal__")
             );
         }
     }
 
 
-    // Do boundaries, skipping empty and processor patches
     for (const polyPatch& p : mesh.boundaryMesh())
     {
+        // Only do real (non-processor) boundaries.
         if (isA<processorPolyPatch>(p))
         {
-            // No processor patches
             break;
         }
 
-        if (returnReduce(!p.empty(), orOp<bool>()))
+        // Skip empty patch types and zero-sized patches
+        // Would ideally like to check for emptyFvPatch,
+        // but that is not available here
+        if
+        (
+            !isA<emptyPolyPatch>(p)
+         && returnReduce(!p.empty(), orOp<bool>())
+        )
         {
-            this->append(new ensightPartFaces(nPart++, mesh, p));
+            this->append(new ensightPartFaces(p));
         }
+    }
+
+    renumber();
+}
+
+
+void Foam::ensightParts::renumber(label start)
+{
+    for (ensightPart& part : *this)
+    {
+        part.index() = start;
+        ++start;
     }
 }
 
@@ -109,24 +124,16 @@ void Foam::ensightParts::write(ensightGeoFile& os) const
         Info<< ' ' << part.index() << flush;
         part.write(os);
     }
+
     Info<< " )" << endl;
 }
 
 
-void Foam::ensightParts::writeSummary(Ostream& os) const
+void Foam::ensightParts::writeDict(Ostream& os, const bool full) const
 {
     for (const ensightPart& part : *this)
     {
-        part.writeSummary(os);
-    }
-}
-
-
-void Foam::ensightParts::dumpInfo(Ostream& os) const
-{
-    for (const ensightPart& part : *this)
-    {
-        part.dumpInfo(os);
+        part.writeDict(os, full);
     }
 }
 

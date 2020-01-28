@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2016 OpenFOAM Foundation
-    Copyright (C) 2016-2019 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -33,21 +33,114 @@ License
 #include "emptyPolyPatch.H"
 #include "processorPolyPatch.H"
 #include "mapDistribute.H"
-#include "stringListOps.H"
 
 #include "ensightFile.H"
 #include "ensightGeoFile.H"
-#include "demandDrivenData.H"
+#include "ensightOutput.H"
+
+// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
+
+const Foam::label Foam::ensightMesh::internalZone = -1;
+
+
+// * * * * * * * * * * * * * * * Local Functions * * * * * * * * * * * * * * //
+
+namespace Foam
+{
+
+// Find matching ids based on whitelist, blacklist
+//
+// An empty whitelist accepts everything that is not blacklisted.
+// A regex match is trumped by a literal match.
+// 
+// Eg,
+//     input:  ( abc apple wall wall1 wall2 )
+//     whitelist:  ( abc  def  "wall.*" )
+//     blacklist:  ( "[ab].*"  wall )
+//
+//     result:  (abc wall1 wall2)
+//
+static labelList getSelected
+(
+    const UList<word>& input,
+    const wordRes& whitelist,
+    const wordRes& blacklist
+)
+{
+    const label len = input.size();
+
+    if (whitelist.empty() && blacklist.empty())
+    {
+        return identity(len);
+    }
+
+    labelList indices(len);
+
+    label count = 0;
+    for (label i=0; i < len; ++i)
+    {
+        const auto& text = input[i];
+
+        bool accept = false;
+
+        if (whitelist.size())
+        {
+            const auto result = whitelist.matched(text);
+
+            accept =
+            (
+                result == wordRe::LITERAL
+              ? true
+              : (result == wordRe::REGEX && !blacklist.match(text))
+            );
+        }
+        else
+        {
+            accept = !blacklist.match(text);
+        }
+
+        if (accept)
+        {
+            indices[count] = i;
+            ++count;
+        }
+    }
+    indices.resize(count);
+
+    return indices;
+}
+
+} // End namespace Foam
+
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
 void Foam::ensightMesh::clear()
 {
-    meshCells_.clear();
-    boundaryPatchFaces_.clear();
-    faceZoneFaces_.clear();
-    patchLookup_.clear();
-    globalPointsPtr_.clear();
+    cellZoneParts_.clear();
+    faceZoneParts_.clear();
+    boundaryParts_.clear();
+}
+
+
+void Foam::ensightMesh::renumber()
+{
+    label partNo = 0;
+
+    for (const label zoneId : cellZoneParts_.sortedToc())
+    {
+        cellZoneParts_[zoneId].index() = partNo++;
+    }
+
+    for (const label patchId : boundaryParts_.sortedToc())
+    {
+        boundaryParts_[patchId].index() = partNo++;
+    }
+
+    for (const label zoneId : faceZoneParts_.sortedToc())
+    {
+        faceZoneParts_[zoneId].index() = partNo++;
+    }
 }
 
 
@@ -72,7 +165,7 @@ Foam::ensightMesh::ensightMesh
 
 Foam::ensightMesh::ensightMesh(const fvMesh& mesh)
 :
-    ensightMesh(mesh, IOstream::streamFormat::BINARY)
+    ensightMesh(mesh, ensightMesh::options(IOstream::streamFormat::BINARY))
 {}
 
 
@@ -82,23 +175,8 @@ Foam::ensightMesh::ensightMesh
     const IOstream::streamFormat format
 )
 :
-    options_(new options(format)),
-    mesh_(mesh),
-    needsUpdate_(true)
-{
-    if (!option().lazy())
-    {
-        correct();
-    }
-}
-
-
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
-Foam::ensightMesh::~ensightMesh()
-{
-    deleteDemandDrivenData(options_);
-}
+    ensightMesh(mesh, ensightMesh::options(format))
+{}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
@@ -128,25 +206,103 @@ void Foam::ensightMesh::correct()
 {
     clear();
 
-    // Part number
-    label nParts = 0;
+    // Track which cells are in a zone or not
+    bitSet cellSelection;
 
-    if (useInternalMesh())
+    // Boundary faces to be excluded from export
+    bitSet excludeFace;
+
+
+    // All or specified cellZones first
+    const wordRes& czMatcher = option().cellZoneSelection();
+
+    if
+    (
+        option().useCellZones()
+     && (option().useInternalMesh() || !czMatcher.empty())
+    )
     {
-        meshCells_.index() = nParts++;
-        meshCells_.classify(mesh_);
+        const wordList zoneNames(mesh_.cellZones().names());
 
-        // Determine parallel shared points
-        globalPointsPtr_ = mesh_.globalData().mergePoints
+        const labelList zoneIds =
         (
-            pointToGlobal_,
-            uniquePointMap_
+            czMatcher.empty()
+          ? identity(zoneNames.size())     // Use all
+          : czMatcher.matching(zoneNames)  // Use selected names
         );
+
+        for (const label zoneId : zoneIds)
+        {
+            const word& zoneName = zoneNames[zoneId];
+            const cellZone& zn = mesh_.cellZones()[zoneId];
+
+            if (returnReduce(!zn.empty(), orOp<bool>()))
+            {
+                cellSelection.set(zn);
+
+                ensightCells& part = cellZoneParts_(zoneId);
+
+                part.clear();
+                part.identifier() = zoneId;
+                part.rename(zoneName);
+
+                part.classify(mesh_, zn);
+
+                // Finalize
+                part.reduce();
+            }
+        }
     }
-    meshCells_.reduce();
+
+    if (option().useInternalMesh())
+    {
+        // The internal mesh
+
+        if (!cellZoneParts_.empty())
+        {
+            // The unzoned cells - flip selection from zoned to unzoned
+            cellSelection.flip();
+
+            if (returnReduce(cellSelection.any(), orOp<bool>()))
+            {
+                ensightCells& part = cellZoneParts_(internalZone);
+
+                part.clear();
+                part.identifier() = internalZone;
+                part.rename("internalMesh");
+
+                part.classify(mesh_, cellSelection);
+
+                // Finalize
+                part.reduce();
+            }
+
+            // Handled all cells
+            cellSelection.clearStorage();
+        }
+        else if (czMatcher.empty())
+        {
+            // The entire mesh, but only if there were no zones.
+            // Skip this is any zones were specified, regardless of their existence
+
+            ensightCells& part = cellZoneParts_(internalZone);
+
+            part.clear();
+            part.identifier() = internalZone;
+            part.rename("internalMesh");
+
+            part.classify(mesh_);
+
+            // Finalize
+            part.reduce();
+
+            // Handled all cells
+            cellSelection.clearStorage();
+        }
+    }
 
 
-    if (useBoundaryMesh())
+    if (option().useBoundaryMesh())
     {
         // Patches are output. Check that they are synced.
         mesh_.boundaryMesh().checkParallelSync(true);
@@ -158,13 +314,14 @@ void Foam::ensightMesh::correct()
             patchNames.resize(mesh_.boundaryMesh().nNonProcessor());
         }
 
-        const wordRes& matcher = option().patchSelection();
-
-        const labelList patchIds =
+        const labelList patchIds
         (
-            matcher.empty()
-          ? identity(patchNames.size())         // Use all
-          : findStrings(matcher, patchNames)    // Use specified names
+            getSelected
+            (
+                patchNames,
+                option().patchSelection(),
+                option().patchExclude()
+            )
         );
 
         for (const label patchId : patchIds)
@@ -174,99 +331,104 @@ void Foam::ensightMesh::correct()
             // Use fvPatch (not polyPatch) to automatically remove empty patches
             const fvPatch& p = mesh_.boundary()[patchId];
 
-            ensightFaces& ensFaces = boundaryPatchFaces_(patchName);
-            ensFaces.clear();
+            ensightFaces& part = boundaryParts_(patchId);
+
+            part.clear();
+            part.identifier() = patchId;
+            part.rename(patchName);
 
             if (p.size())
             {
                 // Local face addressing (offset = 0),
                 // - this is what we'll need later when writing fields
-                ensFaces.classify(p.patch());
+                part.classify(p.patch());
             }
             else
             {
                 // The patch is empty (on this processor)
                 // or the patch is 'empty' (as fvPatch type)
-                ensFaces.clear();
+                part.clear();
             }
 
             // Finalize
-            ensFaces.reduce();
+            part.reduce();
 
-            if (ensFaces.total())
+            if (!part.total())
             {
-                patchLookup_.set(patchId, patchName);
-                ensFaces.index() = nParts++;
-            }
-            else
-            {
-                boundaryPatchFaces_.erase(patchName);
+                boundaryParts_.erase(patchId);
             }
         }
-
-        // At this point,
-        // * patchLookup_        is a map of (patchId, name)
-        // * boundaryPatchFaces_ is a lookup by name for the faces elements
     }
 
 
     if (option().useFaceZones())
     {
-        // Mark boundary faces to be excluded from export
-        bitSet excludeFace(mesh_.nFaces());
+        const wordRes& fzMatcher = option().faceZoneSelection();
 
-        for (const polyPatch& pp : mesh_.boundaryMesh())
+        const wordList zoneNames(mesh_.faceZones().names());
+
+        const labelList zoneIds =
+        (
+            fzMatcher.empty()
+          ? identity(zoneNames.size())      // Use all
+          : fzMatcher.matching(zoneNames)   // Use selected names
+        );
+
+
+        if (zoneIds.size())
         {
-            const auto* procPatch = isA<processorPolyPatch>(pp);
+            excludeFace.resize(mesh_.nFaces());
 
-            if (isA<emptyPolyPatch>(pp))
+            for (const polyPatch& pp : mesh_.boundaryMesh())
             {
-                excludeFace.set(pp.range());
-            }
-            else if (procPatch && !procPatch->owner())
-            {
-                // Exclude neighbour-side, retain owner-side only
-                excludeFace.set(pp.range());
+                const auto* procPatch = isA<processorPolyPatch>(pp);
+
+                if (isA<emptyPolyPatch>(pp))
+                {
+                    excludeFace.set(pp.range());
+                }
+                else if (procPatch && !procPatch->owner())
+                {
+                    // Exclude neighbour-side, retain owner-side only
+                    excludeFace.set(pp.range());
+                }
             }
         }
 
-        // Use sorted order for later consistency
-        const wordList zoneNames =
-            mesh_.faceZones().sortedNames(option().faceZoneSelection());
 
-        // Count face types in each selected faceZone
-        for (const word& zoneName : zoneNames)
+        for (const label zoneId : zoneIds)
         {
-            const label zoneID = mesh_.faceZones().findZoneID(zoneName);
-            const faceZone& fz = mesh_.faceZones()[zoneID];
+            const word& zoneName = zoneNames[zoneId];
+            const faceZone& zn = mesh_.faceZones()[zoneId];
 
-            ensightFaces& ensFaces = faceZoneFaces_(zoneName);
-            ensFaces.clear();
+            ensightFaces& part = faceZoneParts_(zoneId);
 
-            if (fz.size())
+            part.clear();
+            part.identifier() = zoneId;
+            part.rename(zoneName);
+
+            if (zn.size())
             {
-                ensFaces.classify
+                part.classify
                 (
                     mesh_.faces(),
-                    fz,
-                    fz.flipMap(),
+                    zn,
+                    zn.flipMap(),
                     excludeFace
                 );
             }
 
             // Finalize
-            ensFaces.reduce();
+            part.reduce();
 
-            if (ensFaces.total())
+            if (!part.total())
             {
-                ensFaces.index() = nParts++;
-            }
-            else
-            {
-                faceZoneFaces_.erase(zoneName);
+                faceZoneParts_.erase(zoneId);
             }
         }
     }
+
+    renumber();
 
     needsUpdate_ = false;
 }
@@ -275,78 +437,134 @@ void Foam::ensightMesh::correct()
 void Foam::ensightMesh::write(ensightGeoFile& os) const
 {
     //
-    // Write internalMesh
+    // Write cellZones / internalMesh
     //
-    if (useInternalMesh())
+    for (const label zoneId : cellZoneParts_.sortedToc())
     {
-        const label nPoints = globalPoints().size();
+        const ensightCells& part = cellZoneParts_[zoneId];
 
-        const pointField uniquePoints(mesh_.points(), uniquePointMap_);
+        // Renumber the points/faces into unique points
+        autoPtr<globalIndex> globalPointsPtr;
+        labelList pointToGlobal;  // local point to unique global index
+        labelList uniqueMeshPointLabels;  // unique global points
 
-        // writePartHeader(os, 0, "internalMesh");
-        // beginCoordinates(os, nPoints);
-        writeAllPoints
+        const bool usesAllCells =
+            returnReduce((part.size() == mesh_.nCells()), andOp<bool>());
+
+        if (usesAllCells)
+        {
+            // All cells used, and thus all points
+
+            globalPointsPtr =
+                mesh_.globalData().mergePoints
+                (
+                    pointToGlobal,
+                    uniqueMeshPointLabels
+                );
+        }
+        else
+        {
+            // Map mesh point index to local (compact) point index
+            Map<label> meshPointMap(part.meshPointMap(mesh_));
+
+            labelList meshPoints(meshPointMap.sortedToc());
+
+            globalPointsPtr =
+                mesh_.globalData().mergePoints
+                (
+                    meshPoints,
+                    meshPointMap,
+                    pointToGlobal,
+                    uniqueMeshPointLabels
+                );
+
+            meshPointMap.clear();
+
+            // The mergePoints returns pointToGlobal assuming local addressing
+            // (eg, patch localFaces).
+            // Recast as original mesh points to new global points
+
+            labelList oldToNew(mesh_.nPoints(), -1);
+
+            forAll(meshPoints, i)
+            {
+                const label orig = meshPoints[i];
+                const label glob = pointToGlobal[i];
+
+                oldToNew[orig] = glob;
+            }
+
+            pointToGlobal.transfer(oldToNew);
+        }
+
+        ensightOutput::Detail::writeCoordinates
         (
-            meshCells_.index(),
-            "internalMesh",
-            nPoints,
-            uniquePoints,
-            os
+            os,
+            part.index(),
+            part.name(),
+            globalPointsPtr().size(),   // nPoints (global)
+            UIndirectList<point>(mesh_.points(), uniqueMeshPointLabels),
+            Pstream::parRun()           //!< Collective write?
         );
 
-        writeCellConnectivity(meshCells_, pointToGlobal_, os);
+        writeCellConnectivity(os, part, pointToGlobal);
     }
 
 
     //
-    // Write patches - sorted by Id
+    // Write patches - sorted by index
     //
-    for (const label patchId : patchLookup_.sortedToc())
+    for (const label patchId : boundaryParts_.sortedToc())
     {
-        const word& patchName = patchLookup_[patchId];
-        const ensightFaces& ensFaces = boundaryPatchFaces_[patchName];
+        const ensightFaces& part = boundaryParts_[patchId];
 
         const polyPatch& pp = mesh_.boundaryMesh()[patchId];
 
         // Renumber the patch points/faces into unique points
-        labelList pointToGlobal;
-        labelList uniqueMeshPointLabels;
+        labelList pointToGlobal;  // local point to unique global index
+        labelList uniqueMeshPointLabels;  // unique global points
+
         autoPtr<globalIndex> globalPointsPtr =
             mesh_.globalData().mergePoints
             (
                 pp.meshPoints(),
                 pp.meshPointMap(),
-                pointToGlobal, // local point to unique global index
-                uniqueMeshPointLabels // unique global points
+                pointToGlobal,
+                uniqueMeshPointLabels
             );
+
+
+        ensightOutput::Detail::writeCoordinates
+        (
+            os,
+            part.index(),
+            part.name(),
+            globalPointsPtr().size(),  // nPoints (global)
+            UIndirectList<point>(mesh_.points(), uniqueMeshPointLabels),
+            Pstream::parRun() //!< Collective write?
+        );
 
         // Renumber the patch faces,
         // from local patch indexing to unique global index
         faceList patchFaces(pp.localFaces());
-        for (face& f : patchFaces)
-        {
-            inplaceRenumber(pointToGlobal, f);
-        }
+        ListListOps::inplaceRenumber(pointToGlobal, patchFaces);
 
-        writeAllPoints
+        ensightOutput::writeFaceConnectivity
         (
-            ensFaces.index(),
-            patchName,
-            globalPointsPtr().size(),
-            pointField(mesh_.points(), uniqueMeshPointLabels),
-            os
+            os,
+            part,
+            patchFaces,
+            Pstream::parRun()           //!< Collective write?
         );
-
-        writeFaceConnectivity(ensFaces, patchFaces, os);
     }
 
 
     //
-    // Write faceZones, if requested
+    // Write requested faceZones - sorted by index
     //
-    for (const word& zoneName : faceZoneFaces_.sortedToc())
+    for (const label zoneId : faceZoneParts_.sortedToc())
     {
-        const ensightFaces& ensFaces = faceZoneFaces_[zoneName];
+        const ensightFaces& part = faceZoneParts_[zoneId];
 
         // Use the properly sorted faceIds (ensightFaces) and do NOT use the
         // faceZone directly, otherwise the point-maps will not correspond.
@@ -354,27 +572,42 @@ void Foam::ensightMesh::write(ensightGeoFile& os) const
 
         indirectPrimitivePatch pp
         (
-            IndirectList<face>(mesh_.faces(), ensFaces.faceIds()),
+            IndirectList<face>(mesh_.faces(), part.faceIds()),
             mesh_.points()
         );
 
-        // Renumber the points/faces into unique points
-        labelList pointToGlobal;
-        labelList uniqueMeshPointLabels;
+        // Renumber the patch points/faces into unique points
+        labelList pointToGlobal;  // local point to unique global index
+        labelList uniqueMeshPointLabels;  // unique global points
+
         autoPtr<globalIndex> globalPointsPtr =
             mesh_.globalData().mergePoints
             (
                 pp.meshPoints(),
                 pp.meshPointMap(),
-                pointToGlobal, // local point to unique global index
-                uniqueMeshPointLabels // unique global points
+                pointToGlobal,
+                uniqueMeshPointLabels
             );
+
+        ensightOutput::Detail::writeCoordinates
+        (
+            os,
+            part.index(),
+            part.name(),
+            globalPointsPtr().size(),  // nPoints (global)
+            UIndirectList<point>(mesh_.points(), uniqueMeshPointLabels),
+            Pstream::parRun() //!< Collective write?
+        );
 
         // Renumber the faces belonging to the faceZone,
         // from local numbering to unique global index.
-        // Also a good place to perform face flipping
-        const boolList& flip = ensFaces.flipMap();
+
         faceList patchFaces(pp.localFaces());
+        ListListOps::inplaceRenumber(pointToGlobal, patchFaces);
+
+        // Also a good place to perform face flipping
+        const boolList& flip = part.flipMap();
+
         forAll(patchFaces, facei)
         {
             face& f = patchFaces[facei];
@@ -383,20 +616,15 @@ void Foam::ensightMesh::write(ensightGeoFile& os) const
             {
                 f.flip();
             }
-
-            inplaceRenumber(pointToGlobal, f);
         }
 
-        writeAllPoints
+        ensightOutput::writeFaceConnectivityPresorted
         (
-            ensFaces.index(),
-            zoneName,
-            globalPointsPtr().size(),
-            pointField(mesh_.points(), uniqueMeshPointLabels),
-            os
+            os,
+            part,
+            patchFaces,
+            Pstream::parRun()           //!< Collective write?
         );
-
-        writeFaceConnectivity(ensFaces, patchFaces, os, true);
     }
 }
 

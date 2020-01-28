@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2016 OpenFOAM Foundation
-    Copyright (C) 2016-2019 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -28,7 +28,8 @@ Class
     Foam::ensightPart
 
 Description
-    Base class for ensightPartCells and ensightPartFaces
+    Base class for ensightCells, ensightFaces,
+    ensightPartCells, ensightPartFaces.
 
 SourceFiles
     ensightPart.C
@@ -39,11 +40,8 @@ SourceFiles
 #define ensightPart_H
 
 #include "ensightGeoFile.H"
-#include "typeInfo.H"
 #include "labelList.H"
-#include "polyMesh.H"
-#include "Field.H"
-#include "IOstream.H"
+#include "typeInfo.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -58,56 +56,64 @@ class ensightPart
 {
     // Private Data
 
+        //- Part index within a list.
+        //  The ensight part number is typically this value +1.
+        label index_;
+
+        //- OpenFOAM identifier (patch index, zone index, etc).
+        //  An unused identifier is -1
+        label identifier_;
+
+        //- Start face-offset (for patch)
+        label start_;
+
         //- Part name (or description)
         string name_;
 
-
-    // Private Member Functions
-
-        //- No copy construct
-        ensightPart(const ensightPart&) = delete;
-
-        //- No copy assignment
-        void operator=(const ensightPart&) = delete;
+        //- Linear list of element ids (face/cell)
+        //  Sub-sectioning by element type is done by derived classes
+        labelList address_;
 
 
 protected:
 
-    // Protected Classes
-
-        //- Track the points used by the part and map global to local indices
-        struct localPoints
+        //- Element addressing
+        const labelList& addressing() const
         {
-            //- Number of points used
-            label nPoints;
+            return address_;
+        }
 
-            //- Map global to local indices
-            labelList list;
+        //- Element addressing
+        labelList& addressing()
+        {
+            return address_;
+        }
 
-            //- Null constructor
-            localPoints()
-            :
-                nPoints(0),
-                list()
-            {}
+        //- Clear element addressing
+        void clear()
+        {
+            address_.clear();
+        }
 
-            //- Construct for mesh points
-            localPoints(const pointField& pts)
-            :
-                nPoints(0),
-                list(pts.size(), -1)
-            {}
-        };
+        //- Element local addressing (relattive to start)
+        labelList localAddressing() const;
+
+        //- Element local addressing (relattive to start)
+        labelList localAddressing(const labelRange& range) const;
+
 
 public:
 
-    //- Runtime type information
-    TypeName("ensightPart");
+    //- Declare type-name, virtual type (without debug switch)
+    TypeNameNoDebug("ensightPart");
 
 
     // Constructors
 
-        //- Construct with description
+        //- Default construct. Index=0, identifier = -1
+        ensightPart() noexcept;
+
+        //- Default construct, with description/partName
         explicit ensightPart(const string& description);
 
 
@@ -115,25 +121,70 @@ public:
     virtual ~ensightPart() = default;
 
 
-    // Access
+    // Member Functions
 
-        //- Part index (0-based)
-        virtual label index() const = 0;
-
-        //- Number of elements in this part
-        virtual label size() const
+        //- The index in a list (0-based)
+        label index() const
         {
-            return 0;
+            return index_;
         }
 
-        //- Return the part name or description
+        //- The index in a list (0-based)
+        label& index()
+        {
+            return index_;
+        }
+
+        //- OpenFOAM identifier (patch, zone, etc), -1 when not in use.
+        label identifier() const
+        {
+            return identifier_;
+        }
+
+        //- OpenFOAM identifier (patch, zone, etc), -1 when not in use.
+        label& identifier()
+        {
+            return identifier_;
+        }
+
+        //- Processor-local test for any elements.
+        bool empty() const
+        {
+            return address_.empty();
+        }
+
+        //- Start face-offset (for patch)
+        label start() const
+        {
+            return start_;
+        }
+
+        //- Start face-offset (for patch)
+        label& start()
+        {
+            return start_;
+        }
+
+        //- Processor-local size of all elements.
+        label size() const
+        {
+            return address_.size();
+        }
+
+        //- The part name or description
         const string& name() const
         {
             return name_;
         }
 
         //- Change the part name or description
-        void rename(string value)
+        void rename(const string& value)
+        {
+            name_ = value;
+        }
+
+        //- Change the part name or description
+        void rename(string&& value)
         {
             name_ = std::move(value);
         }
@@ -141,35 +192,31 @@ public:
 
     // Output
 
-        //- Write summary information about the object
-        virtual void writeSummary(Ostream& os) const = 0;
-
-        //- Print various types of debugging information
-        virtual void dumpInfo(Ostream& os) const = 0;
+        //- Write information about the object as a dictionary,
+        //- optionally write all element addresses
+        virtual void writeDict(Ostream& os, const bool full=false) const {}
 
         //- Write geometry
-        virtual void write(ensightGeoFile& os) const = 0;
-
-        //- Helper: write geometry with given pointField
-        virtual void write(ensightGeoFile& os, const pointField&) const = 0;
+        virtual void write(ensightGeoFile& os) const {}
 
 
-    // Housekeeping
+    // Member Operators
 
-        //- Deprecated(2019-12) - use rename() method
-        //  \deprecated(2019-12) - use rename() method
-        void FOAM_DEPRECATED_FOR(2019-12, "rename() method")
-        name(string value)
+        //- Processor-local element id from linear-list of addresses.
+        label operator[](const label i) const
         {
-            name_ = std::move(value);
+            return address_[i];
         }
 };
 
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+// Housekeeping
 
-//- IOstream Operator to write geometry
-ensightGeoFile& operator<<(ensightGeoFile& os, const ensightPart& part);
+//- Deprecated(2020-02) - use ensightOutput or member write() methods
+//  \deprecated(2020-02) - use ensightOutput or member write() methods
+void operator<<(ensightGeoFile&, const ensightPart&) = delete;
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

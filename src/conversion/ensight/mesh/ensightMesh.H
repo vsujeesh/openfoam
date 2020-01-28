@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2016 OpenFOAM Foundation
-    Copyright (C) 2016-2018 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -43,22 +43,18 @@ SourceFiles
 #include "ensightCells.H"
 #include "ensightFaces.H"
 #include "ensightGeoFile.H"
-#include "cellList.H"
-#include "faceList.H"
-#include "cellShapeList.H"
-#include "HashTable.H"
 #include "Map.H"
 #include "scalarField.H"
 #include "wordRes.H"
 #include "globalIndex.H"
-
+#include <memory>
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
 
-// Forward declarations
+// Forward Declarations
 class fvMesh;
 class ensightMesh;
 
@@ -70,220 +66,68 @@ class ensightMesh
 {
 public:
 
-    // Forward declarations
+    // Forward Declarations
     class options;
+
+    //- The zone-id for internal mesh or unzoned cells.
+    static const label internalZone;
 
 
 private:
 
-    // Private data
+    // Private Data
 
         //- Writer options
-        const options* options_;
+        const std::unique_ptr<options> options_;
 
         //- Reference to the OpenFOAM mesh
         const fvMesh& mesh_;
 
-        //- The volume cells (internalMesh)
-        ensightCells meshCells_;
+        //- Volume elements per cellZone, lookup by zone index.
+        //  The zone -1 is reserved for internal mesh (unzoned cells)
+        Map<ensightCells> cellZoneParts_;
 
-        //- Face elements per patch
-        HashTable<ensightFaces> boundaryPatchFaces_;
+        //- Face elements per faceZone, lookup by zone index.
+        Map<ensightFaces> faceZoneParts_;
 
-        //- Face elements per faceZone
-        HashTable<ensightFaces> faceZoneFaces_;
-
-        //- The list of patches to be output
-        Map<word> patchLookup_;
+        //- Face elements per selected patch, lookup by patch index
+        Map<ensightFaces> boundaryParts_;
 
         //- Track if it needs an update
         mutable bool needsUpdate_;
 
 
-        // Parallel merged points
-
-        //- Global numbering for merged points
-        autoPtr<globalIndex> globalPointsPtr_;
-
-        //- From mesh point to global merged point
-        labelList pointToGlobal_;
-
-        //- Local points that are unique
-        labelList uniquePointMap_;
-
-
     // Private Member Functions
 
-        //- Clear some storage
+        //- Clear all storage
         void clear();
 
-
-        //- Inplace renumber of cell-shapes
-        static cellShapeList& renumberShapes
-        (
-            cellShapeList& shapes,
-            const labelUList& pointToGlobal
-        );
-
-        //- Copy and return renumbered cell-shapes
-        static cellShapeList renumberShapes
-        (
-            const cellShapeList& shapes,
-            const labelUList& addr,
-            const labelUList& pointToGlobal
-        );
-
-        //- Write list of faces
-        static void writeFaceList
-        (
-            const faceList& faces,
-            ensightGeoFile& os
-        );
-
-        //- Write list of faces
-        static void writeFaceList
-        (
-            const UIndirectList<face>& faces,
-            ensightGeoFile& os
-        );
-
-        //- Return sizes of faces in the list
-        static labelList getFaceSizes
-        (
-            const faceList& faces
-        );
-
-        //- Return sizes of faces in the list
-        static labelList getFaceSizes
-        (
-            const UIndirectList<face>& faces
-        );
-
-        //- Write sizes of faces in the list
-        static void writeFaceSizes
-        (
-            const faceList& faces,
-            ensightGeoFile& os
-        );
-
-        //- Write sizes of faces in the list
-        static void writeFaceSizes
-        (
-            const UIndirectList<face>& faces,
-            ensightGeoFile& os
-        );
-
-        //- Write cell connectivity via cell shapes
-        static void writeCellShapes
-        (
-            const cellShapeList& shapes,
-            ensightGeoFile& os
-        );
-
-        //- Return the number of faces per poly element
-        static labelList getPolysNFaces
-        (
-            const labelUList& polys,
-            const cellList& cellFaces
-        );
-
-        //- Write the number of faces per poly element
-        static void writePolysNFaces
-        (
-            const labelUList& polys,
-            const cellList& cellFaces,
-            ensightGeoFile& os
-        );
-
-        //- Return the number of points per poly element
-        static labelList getPolysNPointsPerFace
-        (
-            const labelUList& polys,
-            const cellList& cellFaces,
-            const faceList& faces
-        );
-
-        //- Write the number of points per poly element
-        static void writePolysNPointsPerFace
-        (
-            const labelUList& polys,
-            const cellList& cellFaces,
-            const faceList& faces,
-            ensightGeoFile& os
-        );
-
-        //- Write the point ids per poly element
-        static void writePolysPoints
-        (
-            const labelUList& addr,
-            const cellList& cellFaces,
-            const faceList& faces,
-            const labelList& faceOwner,
-            ensightGeoFile& os
-        );
+        //- Enforce consistent index/part numbering
+        void renumber();
 
         //- Write the poly connectivity
         void writePolysConnectivity
         (
+            ensightGeoFile& os,
             const labelUList& polys,
-            const labelList& pointToGlobal,
-            ensightGeoFile&
+            const labelList& pointToGlobal
+        ) const;
+
+        //- Write cell connectivity for specified type
+        void writeCellConnectivity
+        (
+            ensightGeoFile& os,
+            const ensightCells::elemType etype,
+            const ensightCells& part,
+            const labelList& pointToGlobal
         ) const;
 
         //- Write the regular cell connectivity for all types
         void writeCellConnectivity
         (
-            const ensightCells& ensCells,
-            const labelList& pointToGlobal,
-            ensightGeoFile& os
-        ) const;
-
-        //- Write the regular cell connectivity for specified type
-        void writeCellConnectivity
-        (
-            ensightCells::elemType elemType,
-            const ensightCells& ensCells,
-            const labelList& pointToGlobal,
-            ensightGeoFile& os
-        ) const;
-
-        //- Write the regular face connectivity for specified type and
-        //- and specified faces
-        void writeFaceConnectivity
-        (
-            ensightFaces::elemType elemType,
-            const label nTotal,
-            const faceList& faces,
-            const labelUList& addr,
-            ensightGeoFile&
-        ) const;
-
-        //- Write the regular face connectivity for specified type
-        void writeFaceConnectivity
-        (
-            ensightFaces::elemType elemType,
-            const label nTotal,
-            const faceList& faces,
-            ensightGeoFile& os
-        ) const;
-
-
-        void writeFaceConnectivity
-        (
-            const ensightFaces& ensFaces,
-            const faceList& faces,
             ensightGeoFile& os,
-            const bool raw = false
-        ) const;
-
-
-        void writeAllPoints
-        (
-            const label partId,
-            const word& ensightPartName,
-            const label nTotal,
-            const pointField& uniquePoints,
-            ensightGeoFile&
+            const ensightCells& part,
+            const labelList& pointToGlobal
         ) const;
 
 
@@ -308,10 +152,6 @@ public:
         ensightMesh(const fvMesh& mesh, const IOstream::streamFormat format);
 
 
-    //- Destructor
-    ~ensightMesh();
-
-
     // Member Functions
 
     // Access
@@ -325,45 +165,18 @@ public:
         //- Ascii/Binary file output
         inline IOstream::streamFormat format() const;
 
-        //- Using internal?
-        inline bool useInternalMesh() const;
+        //- Face elements per selected patch, lookup by patch index
+        //  Process in sorted order.
+        //  May require special treatment for zone -1 (internal).
+        inline const Map<ensightCells>& cellZoneParts() const;
 
-        //- Using boundary?
-        inline bool useBoundaryMesh() const;
+        //- Face elements per faceZone, lookup by zone index.
+        //  Process in sorted order.
+        inline const Map<ensightFaces>& faceZoneParts() const;
 
-        //- The volume cells (internalMesh)
-        inline const ensightCells& meshCells() const;
-
-        //- The list of patches to be output
-        inline const Map<word>& patches() const;
-
-        //- Face elements per selected patch
-        inline const HashTable<ensightFaces>& boundaryPatchFaces() const;
-
-        //- Face elements per selected faceZone.
-        //  To be output in sorted order.
-        inline const HashTable<ensightFaces>& faceZoneFaces() const;
-
-
-    // Parallel point merging
-
-        //- Global numbering for merged points
-        const globalIndex& globalPoints() const
-        {
-            return globalPointsPtr_();
-        }
-
-        //- From mesh point to global merged point
-        const labelList& pointToGlobal() const
-        {
-            return pointToGlobal_;
-        }
-
-        //- Local points that are unique
-        const labelList& uniquePointMap() const
-        {
-            return uniquePointMap_;
-        }
+        //- Face elements per selected patch, lookup by patch index
+        //  Process in sorted order.
+        inline const Map<ensightFaces>& boundaryParts() const;
 
 
     // Other
@@ -387,37 +200,47 @@ public:
 
         //- Write to file
         void write(ensightGeoFile& os) const;
-
 };
 
 
 //- Configuration options for the ensightMesh
 class ensightMesh::options
 {
-    //- Ascii/Binary file output
-    IOstream::streamFormat format_;
+    // Private Data
 
-    //- Create in 'expired' mode
-    bool lazy_;
+        //- Ascii/Binary file output
+        IOstream::streamFormat format_;
 
-    //- Use the internal mesh
-    bool internal_;
+        //- Create in 'expired' mode
+        bool lazy_;
 
-    //- Use the boundary mesh
-    bool boundary_;
+        //- Use the internal mesh
+        bool internal_;
 
-    //- Output of selected patches only
-    wordRes patchPatterns_;
+        //- Use the boundary mesh
+        bool boundary_;
 
-    //- Output of selected faceZones
-    wordRes faceZonePatterns_;
+        //- Handle cellZones (if internal_ is true)
+        bool cellZones_;
+
+        //- Selected patches only
+        wordRes patchInclude_;
+
+        //- Deselected patches
+        wordRes patchExclude_;
+
+        //- Selected cellZones
+        wordRes cellZoneInclude_;
+
+        //- Selected faceZones
+        wordRes faceZoneInclude_;
 
 
 public:
 
     // Constructors
 
-        //- Construct for binary output
+        //- Default construct, use binary output
         options();
 
         //- Construct for specified format
@@ -443,11 +266,20 @@ public:
         //- Using faceZones?
         bool useFaceZones() const;
 
+        //- Using cellZones?
+        bool useCellZones() const;
+
         //- Selection of patches. Empty if unspecified.
         const wordRes& patchSelection() const;
 
+        //- Selection of black listed patches. Empty if unspecified.
+        const wordRes& patchExclude() const;
+
         //- Selection of faceZones. Empty if unspecified.
         const wordRes& faceZoneSelection() const;
+
+        //- Selection of faceZones. Empty if unspecified.
+        const wordRes& cellZoneSelection() const;
 
 
     // Edit
@@ -455,7 +287,7 @@ public:
         //- Reset to defaults
         void reset();
 
-        //- Lazy creation - ensightMesh starts as needsUpdate.
+        //- Lazy creation - ensightMesh starts as needsUpdate
         void lazy(bool beLazy);
 
         //- Alter the useBoundaryMesh state
@@ -464,11 +296,20 @@ public:
         //- Alter the useBoundaryMesh state
         void useBoundaryMesh(bool on);
 
+        //- Alter the useCellZones state
+        void useCellZones(bool on);
+
         //- Define patch selection matcher
         void patchSelection(const UList<wordRe>& patterns);
 
         //- Define patch selection matcher
         void patchSelection(List<wordRe>&& patterns);
+
+        //- Define patch selection blacklist
+        void patchExclude(const UList<wordRe>& patterns);
+
+        //- Define patch selection blacklist
+        void patchExclude(List<wordRe>&& patterns);
 
         //- Define faceZone selection matcher
         void faceZoneSelection(const UList<wordRe>& patterns);
@@ -476,17 +317,28 @@ public:
         //- Define faceZone selection matcher
         void faceZoneSelection(List<wordRe>&& patterns);
 
+        //- Define cellZone selection matcher
+        void cellZoneSelection(const UList<wordRe>& patterns);
+
+        //- Define cellZone selection matcher
+        void cellZoneSelection(List<wordRe>&& patterns);
+
+
+    // Edit
+
+        //- Report values
+        void print(Ostream& os) const;
+
 
     // Housekeeping
 
         //- Older name for useBoundaryMesh()
-        //  \deprecated OCT-2018
+        //  \deprecated(2018-10)
         bool usePatches() const { return useBoundaryMesh(); }
 
         //- Older name for useBoundaryMesh()
-        //  \deprecated OCT-2018
+        //  \deprecated(2018-10)
         void noPatches(bool off) { useBoundaryMesh(!off); }
-
 };
 
 

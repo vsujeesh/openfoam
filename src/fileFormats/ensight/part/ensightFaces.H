@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2016-2018 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -27,15 +27,18 @@ Class
     Foam::ensightFaces
 
 Description
-    Sorting/classification of faces (2D) into corresponding ensight types
+    Sorting/classification of faces (2D) into corresponding ensight types.
+
+    Some caution may be required when handling face addressing into fields.
+    If it is a boundaryField, the local face ids should be used.
 
 \*---------------------------------------------------------------------------*/
 
 #ifndef ensightFaces_H
 #define ensightFaces_H
 
+#include "ensightPart.H"
 #include "boolList.H"
-#include "labelList.H"
 #include "faceList.H"
 #include "FixedList.H"
 #include "bitSet.H"
@@ -50,147 +53,163 @@ namespace Foam
 \*---------------------------------------------------------------------------*/
 
 class ensightFaces
+:
+    public ensightPart
 {
 public:
 
     // Public Data
 
-        //- Addressable ensight element types
+        //- Supported ensight 'Face' element types.
+        //  Must be zero-based since they are also for internal bookkeeping.
         enum elemType
         {
-            TRIA3,      //!< "tria3"
+            TRIA3 = 0,  //!< "tria3"
             QUAD4,      //!< "quad4"
             NSIDED      //!< "nsided"
         };
 
-        //- Number of element types (3)
+        //- Number of 'Face' element types (3)
         static constexpr int nTypes = 3;
 
-        //- The ensight element type names
-        static const char* elemNames[3];
+        //- The ensight 'Face' element type names
+        static const char* elemNames[nTypes];
 
 
-    // Static Member Functions
+    // Static Functions
 
-        //- Return the ensight element name for the specified type
-        static inline const char* key(const enum elemType);
+        //- The ensight element name for the specified 'Face' type
+        static inline const char* key(const elemType etype);
 
 
 private:
 
-    // Private data
-
-        //- Location within a list.
-        //  The ensight part number is typically this value +1.
-        label index_;
-
-        //- Linear list of ids, sub-sectioned per element type by sub-lists
-        labelList address_;
+    // Private Data
 
         //- Linear list of face-flips
         boolList flipMap_;
 
-        //- Slices (sub-lists) of the address and flips for each element type.
-        FixedList<labelRange, 3> slices_;
+        //- Begin/end offsets for address/flips of each element type
+        FixedList<label, nTypes+1> offsets_;
 
         //- List of global sizes for each element type.
         //  Used temporarily for local sizes when building the element lists.
-        FixedList<label, 3> sizes_;
+        FixedList<label, nTypes> sizes_;
 
 
     // Private Member Functions
 
         //- Low-level internal addition routine
-        inline void add(const face& f, const label id, const bool flip = false);
+        inline void add(const elemType etype, label id, bool flip=false);
 
         //- Use temporarily stored sizes to redimension the element lists
         void resizeAll();
 
-        //- No copy assignment
-        void operator=(const ensightFaces&) = delete;
-
 
 public:
 
+    //- Declare type-name, virtual type (with debug switch)
+    TypeName("ensightFaces");
+
+
+    // Generated Methods
+
+        //- Copy construct
+        ensightFaces(const ensightFaces&) = default;
+
+        //- No copy assignment
+        void operator=(const ensightFaces&) = delete;
+
+        //- Move construct
+        ensightFaces(ensightFaces&&) = default;
+
+        //- Move assignment
+        ensightFaces& operator=(ensightFaces&&) = default;
+
+        //- Destructor
+        virtual ~ensightFaces() = default;
+
+
     // Constructors
 
-        //- Construct null, with part index 0
+        //- Default construct, with part index 0
         ensightFaces();
 
-        //- Construct null, with specified part index
+        //- Default construct, with description/partName
+        explicit ensightFaces(const string& description);
+
+        //- Default construct, with specified part index
         explicit ensightFaces(const label partIndex);
-
-        //- Copy constructor. Needed for lists etc.
-        ensightFaces(const ensightFaces& obj);
-
-
-    //- Destructor
-    ~ensightFaces() = default;
 
 
     // Member Functions
 
     // Access
 
-        //- The index in a list.
-        inline label index() const;
+        //- Processor-local size of all elements.
+        using ensightPart::size;
 
-        //- The index in a list, non-const access.
-        inline label& index();
+        //- Processor-local size of the specified element type.
+        inline label size(const elemType etype) const;
 
-        //- The processor local size of all elements.
-        inline label size() const;
+        //- Processor-local offset/size of element type.
+        inline labelRange range(const elemType etype) const;
 
-        //- The processor local size of the specified element type.
-        inline label size(const enum elemType) const;
-
-        //- The global number of all element types.
+        //- The global size of all element types.
         //  This value is only meaningful after a reduce operation.
         label total() const;
 
-        //- The global number of the specified element type.
+        //- The global size of the specified element type.
         //  This value is only meaningful after a reduce operation.
-        inline label total(const enum elemType) const;
+        inline label total(const elemType etype) const;
 
-        //- The global numbers per element type.
+        //- The global sizes for each element type.
         //  This value is only meaningful after a reduce operation.
-        inline const FixedList<label, 3>& totals() const;
+        inline const FixedList<label, nTypes>& totals() const;
 
-        //- The processor local sizes per element type.
-        FixedList<label, 3> sizes() const;
+        //- Processor-local sizes per element type.
+        FixedList<label, nTypes> sizes() const;
 
-        //- Processor local starting offset of element type.
-        inline label offset(const enum elemType what) const;
+        //- Processor-local face ids of all elements
+        inline const labelList& faceIds() const;
 
-        //- Return the (local) face ids of the specified element type
-        inline const labelUList faceIds(const enum elemType) const;
+        //- Processor-local face ids of the specified element type
+        inline const labelUList faceIds(const elemType etype) const;
 
-        //- Return the processor local face ids of all elements
-        inline const labelUList& faceIds() const;
-
-        //- Return the processor local flip-map of all elements
+        //- Processor-local flip-map of all elements
         inline const boolList& flipMap() const;
+
+        //- Processor-local (face) ids relative to start()
+        inline labelList localIds() const;
+
+        //- Processor-local (face) ids relative to start()
+        inline labelList localIds(const elemType etype) const;
 
 
     // Edit
 
-        //- Classify the face types, set element list.
-        void classify(const faceList& faces);
+        //- Classify the face types and set the element lists.
+        void classify(const UList<face>& faces);
 
+        //- Classify face types (for a sublist) and set element lists.
+        void classify(const UList<face>& faces, const labelRange& range);
 
-        //- Classify the face types, set element list.
+        //- Classify the face types and set the element lists.
         //  The indirect addressing can be used when classifying groups of
         //  face (eg, from a faceZone etc) with an optional flipMap.
         //  The optional exclude marker can be used to skip faces on particular
         //  boundary types or regions.
         void classify
         (
-            const faceList& faces,
-            const labelUList& addressing,
+            const UList<face>& faces,
+            const labelUList& addr,
             const boolList& flipMap = boolList(),
             const bitSet& exclude = bitSet()
         );
 
+
+        //- Clear any demand-driven data
+        void clearOut();
 
         //- Set addressable sizes to zero, free up addressing memory.
         void clear();
@@ -202,10 +221,11 @@ public:
         void sort();
 
 
-    // Member Operators
+    // Output
 
-        //- Return element from linear-list.
-        inline label operator[](const label i) const;
+        //- Write information about the object as a dictionary,
+        //- optionally write all element addresses
+        virtual void writeDict(Ostream& os, const bool full=false) const;
 };
 
 

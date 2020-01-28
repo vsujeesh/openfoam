@@ -39,6 +39,15 @@ Description
     writeAllDimFields(ensCase, ensMesh, objects);
 
     Info<< " )" << nl;
+
+    // PointData
+    // - only construct pointMesh on request (it constructs edge addressing)
+    if (!noPointValues)
+    {
+        Info<< "Write point field (";
+        writeAllPointFields(ensCase, ensMesh, objects);
+        Info<< " )" << nl;
+    }
 }
 
 

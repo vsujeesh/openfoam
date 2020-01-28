@@ -260,7 +260,7 @@ int main(int argc, char *argv[])
 
         info
             << "// Summary of ensight parts" << nl << nl;
-        ensParts.writeSummary(info);
+        ensParts.writeDict(info);
     }
 
     #include "checkMeshMoving.H"

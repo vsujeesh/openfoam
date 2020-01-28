@@ -64,6 +64,21 @@ tmp<GeoField> getField
 }
 
 
+//- Get the named field from the objects, or return nullptr.
+template<class GeoField>
+tmp<GeoField> getField
+(
+    const typename GeoField::Mesh& mesh,
+    const IOobjectList& objects,
+    const word& fieldName
+)
+{
+    // Can do something with syncPar on failure ...
+
+    return getField<GeoField>(objects.findObject(fieldName), mesh);
+}
+
+
 //- Get internal field and make it a zero-gradient volume field
 template<class GeoField>
 tmp<GeoField>

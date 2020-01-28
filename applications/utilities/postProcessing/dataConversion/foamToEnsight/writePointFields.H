@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2018-2020 OpenCFD Ltd.
+    Copyright (C) 2018 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -27,18 +27,21 @@ InNamespace
     Foam
 
 Description
-    Read volume fields from disk and write with ensightMesh
+    Read point fields from disk
+    and write with vtk::internalWriter and vtk::patchWriter
 
 SourceFiles
-    writeVolFields.H
+    writePointFields.H
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef ensight_writeVolFields_H
-#define ensight_writeVolFields_H
+#ifndef ensight_writePointFields_H
+#define ensight_writePointFields_H
 
 #include "readFields.H"
 #include "fvMesh.H"
+// #include "foamVtkInternalWriter.H"
+// #include "foamVtkPatchWriter.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -46,11 +49,11 @@ namespace Foam
 {
 
 template<class Type>
-bool writeVolField
+bool writePointField
 (
     ensightCase& ensCase,
     const ensightMesh& ensMesh,
-    const tmp<GeometricField<Type, fvPatchField, volMesh>>& tfield
+    const tmp<GeometricField<Type, pointPatchField, pointMesh>>& tfield
 )
 {
     if (!tfield.valid())
@@ -60,17 +63,14 @@ bool writeVolField
 
     const auto& field = tfield();
 
-    // Forced use of node values?
-    const bool nodeValues = ensCase.nodeValues();
+    // PointData = true
+    autoPtr<ensightFile> os = ensCase.newData<Type>(field.name(), true);
 
-    autoPtr<ensightFile> os = ensCase.newData<Type>(field.name());
-
-    bool wrote = ensightOutput::writeVolField<Type>
+    bool wrote = ensightOutput::Detail::writePointField<Type>
     (
         os.ref(),
         field,
-        ensMesh,
-        nodeValues
+        ensMesh
     );
 
     tfield.clear();
@@ -79,16 +79,16 @@ bool writeVolField
 
 
 template<class Type>
-label writeVolFields
+label writePointFields
 (
     ensightCase& ensCase,
     const ensightMesh& ensMesh,
     const IOobjectList& objects
 )
 {
-    typedef GeometricField<Type, fvPatchField, volMesh> GeoField;
+    typedef GeometricField<Type, pointPatchField, pointMesh> GeoField;
 
-    const fvMesh& mesh = ensMesh.mesh();
+    const pointMesh& ptMesh = pointMesh::New(ensMesh.mesh());
 
     label count = 0;
 
@@ -96,11 +96,11 @@ label writeVolFields
     {
         if
         (
-            writeVolField<Type>
+            writePointField<Type>
             (
                 ensCase,
                 ensMesh,
-                getField<GeoField>(objects.findObject(fieldName), mesh)
+                getField<GeoField>(ptMesh, objects, fieldName)
             )
         )
         {
@@ -113,7 +113,7 @@ label writeVolFields
 }
 
 
-label writeAllVolFields
+label writeAllPointFields
 (
     ensightCase& ensCase,
     const ensightMesh& ensMesh,
@@ -122,7 +122,7 @@ label writeAllVolFields
 {
     #undef  foamToEnsight_WRITE_FIELD
     #define foamToEnsight_WRITE_FIELD(PrimitiveType)    \
-        writeVolFields<PrimitiveType>                   \
+        writePointFields<PrimitiveType>                 \
         (                                               \
             ensCase,                                    \
             ensMesh,                                    \

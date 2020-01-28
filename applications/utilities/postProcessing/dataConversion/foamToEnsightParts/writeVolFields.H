@@ -66,9 +66,10 @@ bool writeVolField
     // Currently serial only
     bool wrote = ensightOutput::Serial::writeVolField<Type>
     (
+        os.ref(),
         field,
-        ensParts,
-        os.ref()
+        ensParts
+        // serial
     );
 
     tfield.clear();

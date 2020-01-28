@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2016-2018 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -26,6 +26,34 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "ensightMesh.H"
+#include "Switch.H"
+
+// * * * * * * * * * * * * * * * Local Functions * * * * * * * * * * * * * * //
+
+namespace Foam
+{
+
+// DIY flatOutput without a leading size indicator
+static Ostream& printPatterns(Ostream& os, const wordRes& list)
+{
+    os << token::BEGIN_LIST;
+
+    bool sep = false;
+
+    for (const wordRe& item : list)
+    {
+        if (sep) os << token::SPACE;
+        os << item;
+
+        sep = true;
+    }
+    os << token::END_LIST;
+
+    return os;
+}
+
+} // End namespace
+
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -41,8 +69,11 @@ Foam::ensightMesh::options::options(IOstream::streamFormat format)
     lazy_(false),
     internal_(true),
     boundary_(true),
-    patchPatterns_(),
-    faceZonePatterns_()
+    cellZones_(true),
+    patchInclude_(),
+    patchExclude_(),
+    cellZoneInclude_(),
+    faceZoneInclude_()
 {}
 
 
@@ -72,9 +103,15 @@ bool Foam::ensightMesh::options::useBoundaryMesh() const
 }
 
 
+bool Foam::ensightMesh::options::useCellZones() const
+{
+    return cellZones_;
+}
+
+
 bool Foam::ensightMesh::options::useFaceZones() const
 {
-    return faceZonePatterns_.size();
+    return faceZoneInclude_.size();
 }
 
 
@@ -82,8 +119,11 @@ void Foam::ensightMesh::options::reset()
 {
     internal_ = true;
     boundary_ = true;
-    patchPatterns_.clear();
-    faceZonePatterns_.clear();
+    cellZones_ = true;
+    patchInclude_.clear();
+    patchExclude_.clear();
+    faceZoneInclude_.clear();
+    cellZoneInclude_.clear();
 }
 
 
@@ -103,12 +143,30 @@ void Foam::ensightMesh::options::useBoundaryMesh(bool on)
 {
     boundary_ = on;
 
-    if (!boundary_ && patchPatterns_.size())
+    if (!boundary_)
     {
-        patchPatterns_.clear();
+        if (patchInclude_.size())
+        {
+            patchInclude_.clear();
+
+            WarningInFunction
+                << "Deactivating boundary, removed old patch selection"
+                << endl;
+        }
+    }
+}
+
+
+void Foam::ensightMesh::options::useCellZones(bool on)
+{
+    cellZones_ = on;
+
+    if (!cellZones_ && cellZoneInclude_.size())
+    {
+        cellZoneInclude_.clear();
 
         WarningInFunction
-            << "Deactivating boundary and removing old patch selection"
+            << "Deactivating cellZones, removed old zone selection"
             << endl;
     }
 }
@@ -119,14 +177,14 @@ void Foam::ensightMesh::options::patchSelection
     const UList<wordRe>& patterns
 )
 {
-    patchPatterns_ = wordRes(patterns);
+    patchInclude_ = wordRes(patterns);
 
-    if (!boundary_ && patchPatterns_.size())
+    if (!boundary_ && patchInclude_.size())
     {
-        patchPatterns_.clear();
+        patchInclude_.clear();
 
         WarningInFunction
-            << "Ignoring patch selection, boundary is not active"
+            << "Ignoring patch selection, boundary is disabled"
             << endl;
     }
 }
@@ -137,16 +195,34 @@ void Foam::ensightMesh::options::patchSelection
     List<wordRe>&& patterns
 )
 {
-    patchPatterns_ = wordRes(std::move(patterns));
+    patchInclude_ = wordRes(std::move(patterns));
 
-    if (!boundary_ && patchPatterns_.size())
+    if (!boundary_ && patchInclude_.size())
     {
-        patchPatterns_.clear();
+        patchInclude_.clear();
 
         WarningInFunction
-            << "Ignoring patch selection, boundary is not active"
+            << "Ignoring patch selection, boundary is disabled"
             << endl;
     }
+}
+
+
+void Foam::ensightMesh::options::patchExclude
+(
+    const UList<wordRe>& patterns
+)
+{
+    patchExclude_ = wordRes(patterns);
+}
+
+
+void Foam::ensightMesh::options::patchExclude
+(
+    List<wordRe>&& patterns
+)
+{
+    patchExclude_ = wordRes(std::move(patterns));
 }
 
 
@@ -155,7 +231,7 @@ void Foam::ensightMesh::options::faceZoneSelection
     const UList<wordRe>& patterns
 )
 {
-    faceZonePatterns_ = wordRes(patterns);
+    faceZoneInclude_ = wordRes(patterns);
 }
 
 
@@ -164,19 +240,113 @@ void Foam::ensightMesh::options::faceZoneSelection
     List<wordRe>&& patterns
 )
 {
-    faceZonePatterns_ = wordRes(std::move(patterns));
+    faceZoneInclude_ = wordRes(std::move(patterns));
+}
+
+
+void Foam::ensightMesh::options::cellZoneSelection
+(
+    const UList<wordRe>& patterns
+)
+{
+    cellZoneInclude_ = wordRes(patterns);
+
+    if (!cellZones_ && cellZoneInclude_.size())
+    {
+        cellZoneInclude_.clear();
+
+        WarningInFunction
+            << "Ignoring cellZone selection, cellZones are disabled"
+            << endl;
+    }
+}
+
+
+void Foam::ensightMesh::options::cellZoneSelection
+(
+    List<wordRe>&& patterns
+)
+{
+    cellZoneInclude_ = wordRes(std::move(patterns));
+
+    if (!cellZones_ && cellZoneInclude_.size())
+    {
+        cellZoneInclude_.clear();
+
+        WarningInFunction
+            << "Ignoring cellZone selection, cellZones are disabled"
+            << endl;
+    }
 }
 
 
 const Foam::wordRes& Foam::ensightMesh::options::patchSelection() const
 {
-    return patchPatterns_;
+    return patchInclude_;
+}
+
+
+const Foam::wordRes& Foam::ensightMesh::options::patchExclude() const
+{
+    return patchExclude_;
 }
 
 
 const Foam::wordRes& Foam::ensightMesh::options::faceZoneSelection() const
 {
-    return faceZonePatterns_;
+    return faceZoneInclude_;
+}
+
+
+const Foam::wordRes& Foam::ensightMesh::options::cellZoneSelection() const
+{
+    return cellZoneInclude_;
+}
+
+
+void Foam::ensightMesh::options::print(Ostream& os) const
+{
+    os << "internal: " << Switch::name(internal_) << nl;
+    os << "cellZones: " << Switch::name(cellZones_) << nl;
+    if (cellZones_)
+    {
+        os.incrIndent();
+        if (!cellZoneInclude_.empty())
+        {
+            os.writeKeyword("include");
+            printPatterns(os, cellZoneInclude_) << nl;
+        }
+        os.decrIndent();
+    }
+
+    os << "boundary: " << Switch::name(boundary_) << nl;
+    if (boundary_)
+    {
+        os.incrIndent();
+        if (!patchInclude_.empty())
+        {
+            os.writeKeyword("include");
+            printPatterns(os, patchInclude_) << nl;
+        }
+        if (!patchExclude_.empty())
+        {
+            os.writeKeyword("exclude");
+            printPatterns(os, patchExclude_) << nl;
+        }
+        os.decrIndent();
+    }
+
+    os << "faceZones: " << Switch::name(useFaceZones()) << nl;
+    if (useFaceZones())
+    {
+        os.incrIndent();
+        if (!faceZoneInclude_.empty())
+        {
+            os.writeKeyword("include");
+            printPatterns(os, faceZoneInclude_) << nl;
+        }
+        os.decrIndent();
+    }
 }
 
 

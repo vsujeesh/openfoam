@@ -110,6 +110,7 @@ Note
 #include "readFields.H"
 #include "writeVolFields.H"
 #include "writeDimFields.H"
+#include "writePointFields.H"
 
 #include "memInfo.H"
 
@@ -156,10 +157,27 @@ int main(int argc, char *argv[])
     );
     argList::addBoolOption
     (
+        "no-cellZones",
+        "Suppress writing any cellZones"
+    );
+    argList::addBoolOption
+    (
         "no-lagrangian",  // noLagrangian
         "Suppress writing lagrangian positions and fields"
     );
     argList::addOptionCompat("no-lagrangian", {"noLagrangian", 1806});
+
+    argList::addBoolOption
+    (
+        "no-point-data",
+        "Suppress conversion of pointFields. No interpolated PointData."
+    );
+
+    // argList::addBoolOption
+    // (
+    //     "one-boundary",  // allPatches
+    //     "Combine all patches into a single part"
+    // );
 
     argList::addOption
     (
@@ -167,6 +185,14 @@ int main(int argc, char *argv[])
         "wordRes",
         "Specify single patch or multiple patches to write\n"
         "Eg, 'inlet' or '(outlet \"inlet.*\")'"
+    );
+    argList::addOption
+    (
+        "excludePatches",
+        "wordRes",
+        "Specify single patch or multiple patches to exclude from writing."
+        " Eg, 'outlet' or '( inlet \".*Wall\" )'",
+        true  // mark as an advanced option
     );
     argList::addOption
     (
@@ -182,7 +208,6 @@ int main(int argc, char *argv[])
         "Specify single or multiple fields to write (all by default)\n"
         "Eg, 'T' or '( \"U.*\" )'"
     );
-#if 0
     argList::addOption
     (
         "cellZones",
@@ -192,9 +217,6 @@ int main(int argc, char *argv[])
         true  // mark as an advanced option
     );
     argList::addOptionCompat("cellZone", {"cellZones", 1912});
-#else
-    argList::ignoreOptionCompat({"cellZones", 1912}, true);  // has argument
-#endif
 
     argList::addOption
     (
@@ -264,16 +286,31 @@ int main(int argc, char *argv[])
     ensightMesh::options writeOpts(format);
     writeOpts.useBoundaryMesh(!args.found("no-boundary"));
     writeOpts.useInternalMesh(!args.found("no-internal"));
+    writeOpts.useCellZones(!args.found("no-cellZones"));
     const bool doLagrangian = !args.found("no-lagrangian");
+    const bool noPointValues = args.found("no-point-data");
 
     if (args.found("patches"))
     {
         writeOpts.patchSelection(args.getList<wordRe>("patches"));
     }
+    if (args.found("excludePatches"))
+    {
+        writeOpts.patchExclude(args.getList<wordRe>("excludePatches"));
+    }
+
     if (args.found("faceZones"))
     {
         writeOpts.faceZoneSelection(args.getList<wordRe>("faceZones"));
     }
+    if (args.found("cellZones"))
+    {
+        writeOpts.cellZoneSelection(args.getList<wordRe>("cellZones"));
+    }
+
+    // Report the setup
+    writeOpts.print(Info);
+
 
     //
     // Output configuration (field related)
@@ -320,17 +357,18 @@ int main(int argc, char *argv[])
         // Remove "*_0" restart fields
         objects.prune_0();
 
-        // Only retain volume and dimensioned fields.
-        objects.filterClasses
-        (
-            [](const word& clsName){
-                return
-                (
-                    fieldTypes::volume.found(clsName)
-                 || fieldTypes::internal.found(clsName)
-                );
-            }
-        );
+        if (noPointValues)
+        {
+            // Prune point fields unless specifically requested
+            objects.filterClasses
+            (
+                [](const word& clsName)
+                {
+                    return fieldTypes::point.found(clsName);
+                },
+                true // prune
+            );
+        }
 
         wordList objectNames(objects.sortedNames());
 

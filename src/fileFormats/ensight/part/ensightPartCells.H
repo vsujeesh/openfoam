@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2015 OpenFOAM Foundation
-    Copyright (C) 2016-2019 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -32,15 +32,17 @@ Description
 
 SourceFiles
     ensightPartCells.C
+    ensightPartCellsAddr.C
+    ensightPartCellsIO.C
 
 \*---------------------------------------------------------------------------*/
 
 #ifndef ensightPartCells_H
 #define ensightPartCells_H
 
-#include "ensightPart.H"
 #include "ensightCells.H"
-#include "typeInfo.H"
+#include "polyMesh.H"
+#include <memory>
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -53,28 +55,56 @@ namespace Foam
 
 class ensightPartCells
 :
-    public ensightCells,
-    public ensightPart
+    public ensightCells
 {
     // Private Data
 
         //- The referenced mesh
         const polyMesh& mesh_;
 
+        //- Can skip local point renumbering when points are contiguous
+        bool contiguousPoints_;
+
+
+    // Demand-driven data
+
+        //- The number of points used
+        mutable label nPointsUsed_;
+
+        //- Map global to local indices, with -1 for ununsed points
+        mutable std::unique_ptr<labelList> localPointMap_;
+
 
     // Private Member Functions
 
-        //- Track points used
-        localPoints calcLocalPoints() const;
+        //- Calculate the points used
+        void calcLocalPoints() const;
+
+        //- Return the number of unique points (demand-driven)
+        label getPointsUsed() const;
+
+        //- Return the global to local indices (demand-driven)
+        labelList& getPointMap() const;
+
+        //- Element connectivity for polyhedrals
+        void writePolysConnectivity
+        (
+            ensightGeoFile& os,
+            const labelUList& addr,
+            const labelUList& pointMap
+        ) const;
 
         //- Element connectivity
         void writeConnectivity
         (
-            ensightGeoFile&,
-            const word& key,
+            ensightGeoFile& os,
+            const ensightCells::elemType etype,
             const labelUList& idList,
             const labelUList& pointMap
         ) const;
+
+        //- Write processor-local (serial) geometry
+        void writeSerial(ensightGeoFile& os) const;
 
 
         //- No copy construct
@@ -86,17 +116,12 @@ class ensightPartCells
 
 public:
 
-    //- Runtime type information
-    TypeName("ensightCells");
-
-
     // Constructors
 
         //- Construct from entire polyMesh without zones.
         //- Part receives the specified name (default: "cells").
-        ensightPartCells
+        explicit ensightPartCells
         (
-            label partIndex,
             const polyMesh& mesh,
             const string& partName = "cells"
         );
@@ -105,7 +130,6 @@ public:
         //- Part receives the specified name (default: "cells").
         ensightPartCells
         (
-            label partIndex,
             const polyMesh& mesh,
             const labelUList& cellIds,
             const string& partName = "cells"
@@ -115,20 +139,18 @@ public:
         //- Part receives the specified name (default: "cells").
         ensightPartCells
         (
-            label partIndex,
             const polyMesh& mesh,
             const bitSet& selection,
             const string& partName = "cells"
         );
 
-        //- Construct from polyMesh and cellZone.
+        //- Construct from cellZone.
         //- Part receives the name of the zone unless otherwise specified.
         ensightPartCells
         (
-            label partIndex,
             const polyMesh& mesh,
             const cellZone& zn,
-            const string& partName = ""
+            const string& partName = string::null
         );
 
 
@@ -138,34 +160,11 @@ public:
 
     // Member Functions
 
-    // Access
+        //- Clear any demand-driven data
+        void clearOut();
 
-        //- Part index (0-based)
-        virtual label index() const
-        {
-            return ensightCells::index();
-        }
-
-        //- Number of elements in this part
-        virtual label size() const
-        {
-            return ensightCells::size();
-        }
-
-
-    // Output
-
-        //- Write summary information about the object
-        virtual void writeSummary(Ostream& os) const;
-
-        //- Print various types of debugging information
-        virtual void dumpInfo(Ostream& os) const;
-
-        //- Write geometry
+        //- Write geometry (serial only)
         virtual void write(ensightGeoFile& os) const;
-
-        //- Helper: write geometry with given pointField
-        virtual void write(ensightGeoFile& os, const pointField& points) const;
 };
 
 

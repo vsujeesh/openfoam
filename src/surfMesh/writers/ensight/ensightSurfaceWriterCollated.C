@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2014 OpenFOAM Foundation
-    Copyright (C) 2015-2019 OpenCFD Ltd.
+    Copyright (C) 2015-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -405,15 +405,14 @@ Foam::fileName Foam::surfaceWriters::ensightWriter::writeCollated
 
         const fileName meshFile(baseDir/geometryName);
 
-        // Write geometry
-        ensightPartFaces ensPart
+        // Ensight Geometry
+        ensightOutputSurface part
         (
-            0,
             meshFile.name(),
             surf.points(),
-            surf.faces(),
-            true // contiguous points
+            surf.faces()
         );
+
         if (!exists(meshFile))
         {
             if (verbose_)
@@ -427,7 +426,7 @@ Foam::fileName Foam::surfaceWriters::ensightWriter::writeCollated
                 meshFile.name(),
                 writeFormat_
             );
-            osGeom << ensPart;
+            part.write(osGeom); // serial
         }
 
         // Write field
@@ -450,19 +449,19 @@ Foam::fileName Foam::surfaceWriters::ensightWriter::writeCollated
         {
             ensightOutput::Serial::writePointField
             (
+                osField,
                 tfield(),
-                ensPart,
-                osField
+                part
                 // serial
             );
         }
         else
         {
-            ensightOutput::Detail::writeFaceField
+            ensightOutput::Detail::writeField
             (
-                tfield(),
-                ensPart,
                 osField,
+                tfield(),
+                part,
                 false // serial
             );
         }

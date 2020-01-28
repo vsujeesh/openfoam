@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2016-2019 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -35,15 +35,16 @@ Description
 #ifndef ensightCells_H
 #define ensightCells_H
 
-#include "labelList.H"
+#include "ensightPart.H"
 #include "FixedList.H"
+#include "Map.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
 
-// Forward declarations
+// Forward Declarations
 class bitSet;
 class polyMesh;
 
@@ -52,54 +53,53 @@ class polyMesh;
 \*---------------------------------------------------------------------------*/
 
 class ensightCells
+:
+    public ensightPart
 {
 public:
 
-    // Public data
+    // Public Data
 
-        //- Addressable ensight element types
+        //- Supported ensight 'Cell' element types
+        //  Must be zero-based since they are also for internal bookkeeping.
         enum elemType
         {
-            TETRA4,     //!< "tetra4"
+            TETRA4 = 0, //!< "tetra4"
             PYRAMID5,   //!< "pyramid5"
             PENTA6,     //!< "penta6"
             HEXA8,      //!< "hexa8"
             NFACED      //!< "nfaced"
         };
 
-        //- Number of element types (5)
+        //- Number of 'Cell' element types (5)
         static constexpr int nTypes = 5;
 
-        //- The ensight element type names
-        static const char* elemNames[5];
+        //- The ensight 'Cell' element type names
+        static const char* elemNames[nTypes];
 
 
-    // Static Member Functions
+    // Static Functions
 
-        //- Return the ensight element name for the specified type
-        inline static const char* key(const enum elemType);
+        //- The ensight element name for the specified 'Cell' type
+        inline static const char* key(const elemType etype);
 
 
 private:
 
     // Private Data
 
-        //- Location within a list.
-        //  The ensight part number is typically this value +1.
-        label index_;
-
-        //- Linear list of ids, sub-sectioned per element type by sub-lists
-        labelList address_;
-
-        //- Slices (sub-lists) of the address ids for each element type.
-        FixedList<labelRange, 5> slices_;
+        //- Begin/end offsets for address of each element type
+        FixedList<label, nTypes+1> offsets_;
 
         //- List of global sizes for each element type.
         //  Used temporarily for local sizes when building the element lists.
-        FixedList<label, 5> sizes_;
+        FixedList<label, nTypes> sizes_;
 
 
     // Private Member Functions
+
+        //- Low-level internal addition routine
+        inline void add(const elemType etype, label id);
 
         //- Use temporarily stored sizes to redimension the element lists
         void resizeAll();
@@ -108,67 +108,89 @@ private:
         template<class Addressing>
         void classifyImpl(const polyMesh& mesh, const Addressing& cellIds);
 
-        //- No copy assignment
-        void operator=(const ensightCells&) = delete;
-
 
 public:
 
+    //- Declare type-name, virtual type (with debug switch)
+    TypeName("ensightCells");
+
+
+    // Generated Methods
+
+        //- No copy assignment
+        void operator=(const ensightCells&) = delete;
+
+        //- Move construct
+        ensightCells(ensightCells&&) = default;
+
+        //- Move assignment
+        ensightCells& operator=(ensightCells&&) = default;
+
+        //- Destructor
+        virtual ~ensightCells() = default;
+
+
     // Constructors
 
-        //- Construct null, with part index 0
+        //- Default construct, with part index 0
         ensightCells();
 
-        //- Construct null, with specified part index
+        //- Default construct, with description/partName
+        explicit ensightCells(const string& description);
+
+        //- Default construct, with specified part index
         explicit ensightCells(const label partIndex);
 
-        //- Copy constructor. Needed for lists etc.
-        ensightCells(const ensightCells& obj);
-
-
-    //- Destructor
-    ~ensightCells() = default;
+        //- Copy construct
+        ensightCells(const ensightCells& rhs);
 
 
     // Member Functions
 
     // Access
 
-        //- The index in a list.
-        inline label index() const;
+        //- Processor-local size of all elements.
+        using ensightPart::size;
 
-        //- The index in a list, non-const access.
-        inline label& index();
+        //- Processor-local size of the specified element type.
+        inline label size(const elemType etype) const;
 
-        //- The processor local size of all elements.
-        inline label size() const;
+        //- Processor-local offset/size of element type.
+        inline labelRange range(const elemType etype) const;
 
-        //- The processor local size of the specified element type.
-        inline label size(const enum elemType) const;
-
-        //- The global number of the specified element type.
-        //  This value is only meaningful after a reduce operation.
-        inline label total(const enum elemType) const;
-
-        //- The global number of all element types.
+        //- The global size of all element types.
         //  This value is only meaningful after a reduce operation.
         label total() const;
 
-        //- The global numbers per element type.
+        //- The global size of the specified element type.
         //  This value is only meaningful after a reduce operation.
-        inline const FixedList<label, 5>& totals() const;
+        inline label total(const elemType etype) const;
 
-        //- The processor local sizes per element type.
-        FixedList<label, 5> sizes() const;
+        //- The global sizes for each element type.
+        //  This value is only meaningful after a reduce operation.
+        inline const FixedList<label, nTypes>& totals() const;
 
-        //- Processor local starting offset of element type.
-        inline label offset(const enum elemType what) const;
+        //- Processor-local sizes per element type.
+        FixedList<label, nTypes> sizes() const;
 
-        //- Return the (local) cell ids of the specified element type
-        inline const labelUList cellIds(const enum elemType) const;
+        //- Processor-local cell ids of all elements
+        inline const labelList& cellIds() const;
 
-        //- Return the cell ids of all elements
-        inline const labelUList& cellIds() const;
+        //- Processor-local cell ids of the specified element type
+        inline const labelUList cellIds(const elemType etype) const;
+
+        //- Processor-local (cell) ids relative to start()
+        inline labelList localIds() const;
+
+        //- Processor-local (cell) ids relative to start()
+        inline labelList localIds(const elemType etype) const;
+
+
+    // Addressing
+
+        //- Mesh point map.
+        //  Map mesh point index to local (compact) point index
+        Map<label> meshPointMap(const polyMesh& mesh) const;
 
 
     // Edit
@@ -184,6 +206,10 @@ public:
         //- using a subgroup of cells
         void classify(const polyMesh& mesh, const bitSet& selection);
 
+
+        //- Clear any demand-driven data
+        void clearOut();
+
         //- Set addressable sizes to zero, free up addressing memory.
         void clear();
 
@@ -194,11 +220,11 @@ public:
         void sort();
 
 
-    // Member Operators
+    // Output
 
-        //- Return id from linear list of addressing.
-        inline label operator[](const label i) const;
-
+        //- Write information about the object as a dictionary,
+        //- optionally write all element addresses
+        virtual void writeDict(Ostream& os, const bool full=false) const;
 };
 
 

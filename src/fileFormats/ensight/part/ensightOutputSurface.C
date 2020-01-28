@@ -5,8 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2011-2016 OpenFOAM Foundation
-    Copyright (C) 2016-2020 OpenCFD Ltd.
+    Copyright (C) 2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -26,85 +25,67 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "ensightPartFaces.H"
+#include "ensightOutputSurface.H"
+#include "ensightOutput.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::ensightPartFaces::ensightPartFaces
+Foam::ensightOutputSurface::ensightOutputSurface
 (
-    const string& description,
     const pointField& points,
-    const faceList& faces,
-    const bool contiguousPoints
+    const faceList& faces
 )
 :
     ensightFaces(),
     points_(points),
-    faces_(faces),
-    contiguousPoints_(contiguousPoints),
-    nPointsUsed_(0),
-    localPointMap_(nullptr)
+    faces_(faces)
 {
-    if (!description.empty())
-    {
-        rename(description);
-    }
-
     // Classify face types
     classify(faces);
 }
 
 
-Foam::ensightPartFaces::ensightPartFaces
+Foam::ensightOutputSurface::ensightOutputSurface
 (
-    const polyMesh& mesh,
-    const polyPatch& patch,
-    const string& partName
+    const string& description,
+    const pointField& points,
+    const faceList& faces
 )
 :
-    ensightFaces(),
-    points_(mesh.points()),
-    faces_(mesh.faces()),
-    contiguousPoints_(false),
-    nPointsUsed_(0),
-    localPointMap_(nullptr)
+    ensightOutputSurface(points, faces)
 {
-    identifier() = patch.index();
-
-    start() = patch.start();
-
-    if (!partName.empty())
-    {
-        rename(partName);
-    }
-    else
-    {
-        rename(patch.name());
-    }
-
-    // Classify face types for patch region
-    classify(mesh.faces(), patch.range());
+    rename(description);
 }
-
-
-Foam::ensightPartFaces::ensightPartFaces
-(
-    const polyPatch& patch,
-    const string& partName
-)
-:
-    ensightPartFaces(patch.boundaryMesh().mesh(), patch, partName)
-{}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::ensightPartFaces::clearOut()
+void Foam::ensightOutputSurface::write(ensightGeoFile& os) const
 {
-    ensightFaces::clearOut();
+    if (!total())
+    {
+        return;
+    }
 
-    nPointsUsed_ = 0;
-    localPointMap_.reset(nullptr);
+    // Coordinates
+    ensightOutput::Detail::writeCoordinates
+    (
+        os,
+        index(),
+        name(),
+        points_.size(),
+        points_,
+        false // serial
+    );
+
+    // Faces
+    ensightOutput::writeFaceConnectivity
+    (
+        os,
+        *this,
+        faces_,
+        false  // serial
+    );
 }
 
 

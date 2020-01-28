@@ -5,8 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2011-2016 OpenFOAM Foundation
-    Copyright (C) 2016-2020 OpenCFD Ltd.
+    Copyright (C) 2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -26,70 +25,39 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "ensightPart.H"
+#include "ensightCells.H"
+#include "polyMesh.H"
 
-// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
-namespace Foam
+Foam::Map<Foam::label>
+Foam::ensightCells::meshPointMap(const polyMesh& mesh) const
 {
-    defineTypeName(ensightPart);
-}
+    const label nEstimate = 8*this->size();
 
+    Map<label> pointMap(nEstimate);
 
-// * * * * * * * * * * * * Protected Member Functions  * * * * * * * * * * * //
+    // Pass 1: markup used points from cells
 
-Foam::labelList Foam::ensightPart::localAddressing() const
-{
-    labelList output(address_);
-
-    if (start_)
+    for (const label celli : this->cellIds())
     {
-        for (label& val : output)
+        for (const label facei : mesh.cells()[celli])
         {
-            val += start_;
+            for (const label pointi : mesh.faces()[facei])
+            {
+                pointMap.insert(pointi, 0);
+            }
         }
     }
 
-    return output;
-}
-
-
-Foam::labelList Foam::ensightPart::localAddressing(const labelRange& r) const
-{
-    labelList output(labelSubList(r, address_));
-
-    if (start_)
+    // Compact point numbering, preserves the original order
+    label nPoints = 0;
+    for (const label pointi : pointMap.sortedToc())
     {
-        for (label& val : output)
-        {
-            val += start_;
-        }
+        pointMap(pointi) = nPoints++;
     }
 
-    return output;
-}
-
-
-// * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
-Foam::ensightPart::ensightPart() noexcept
-:
-    index_(0),
-    identifier_(-1),
-    start_(0),
-    name_(),
-    address_()
-{}
-
-
-Foam::ensightPart::ensightPart(const string& description)
-:
-    ensightPart()
-{
-    if (!description.empty())
-    {
-        name_ = description;
-    }
+    return pointMap;
 }
 
 

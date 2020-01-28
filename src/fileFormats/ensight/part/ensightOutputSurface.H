@@ -5,8 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2011-2016 OpenFOAM Foundation
-    Copyright (C) 2016-2020 OpenCFD Ltd.
+    Copyright (C) 2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -25,22 +24,22 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Class
-    Foam::ensightParts
+    Foam::ensightOutputSurface
 
 Description
-    A collection of several ensightPart elements
+    A variant of ensightFaces that holds references to continuous
+    points/faces for writing out. The surface is assumed to have been merged
+    prior so the output is serial-only.
 
 SourceFiles
-    ensightParts.C
+    ensightOutputSurface.C
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef ensightParts_H
-#define ensightParts_H
+#ifndef ensightOutputSurface_H
+#define ensightOutputSurface_H
 
-#include "SLPtrList.H"
-#include "ensightPartFaces.H"
-#include "ensightPartCells.H"
+#include "ensightFaces.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -48,59 +47,59 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                        Class ensightParts Declaration
+                    Class ensightOutputSurface Declaration
 \*---------------------------------------------------------------------------*/
 
-class ensightParts
+class ensightOutputSurface
 :
-    public SLPtrList<ensightPart>
+    public ensightFaces
 {
+    // Private Data
+
+        //- The referenced pointField
+        const pointField& points_;
+
+        //- The referenced faces
+        const faceList& faces_;
+
+
     // Private Member Functions
 
         //- No copy construct
-        ensightParts(const ensightParts&) = delete;
+        ensightOutputSurface(const ensightOutputSurface&) = delete;
 
         //- No copy assignment
-        void operator=(const ensightParts&) = delete;
+        void operator=(const ensightOutputSurface&) = delete;
 
 
 public:
 
     // Constructors
 
-        //- Construct from polyMesh
-        explicit ensightParts(const polyMesh& mesh);
+        //- Construct from points and faces.
+        ensightOutputSurface
+        (
+            const pointField& points,
+            const faceList& faces
+        );
+
+        //- Construct named from points and faces.
+        ensightOutputSurface
+        (
+            const string& description,
+            const pointField& points,
+            const faceList& faces
+        );
+
+
+    //- Destructor
+    virtual ~ensightOutputSurface() = default;
 
 
     // Member Functions
 
-        //- Any parts?
-        using SLPtrList<ensightPart>::empty;
-
-        //- Number of parts
-        using SLPtrList<ensightPart>::size;
-
-        //- Clear old information and construct anew from polyMesh
-        void recalculate(const polyMesh& mesh);
-
-        //- Renumber each entry, starting at given index (default: 0)
-        void renumber(label start=0);
-
-
-    // Output
-
-        //- Write information about the object as a dictionary,
-        //- optionally with all elements
-        void writeDict(Ostream& os, const bool full=false) const;
-
-        //- Write the geometry to file
-        void write(autoPtr<ensightGeoFile>& os) const
-        {
-            write(os.ref());
-        }
-
-        //- Write the geometry to file
-        void write(ensightGeoFile& os) const;
+        //- Write processor-local (serial) geometry
+        virtual void write(ensightGeoFile& os) const;
 };
 
 
