@@ -82,8 +82,7 @@ Foam::ensightGeoFile::ensightGeoFile
 
 Foam::Ostream& Foam::ensightGeoFile::writeKeyword(const keyType& key)
 {
-    // Ensure we get ensightFile::write(const string&)
-    write(static_cast<const string&>(key));
+    writeString(key);
     newline();
 
     return *this;
@@ -101,14 +100,14 @@ void Foam::ensightGeoFile::beginPart
 )
 {
     beginPart(index);
-    write(description);
+    writeString(description);
     newline();
 }
 
 
 void Foam::ensightGeoFile::beginCoordinates(const label npoints)
 {
-    write("coordinates");
+    writeString("coordinates");
     newline();
     write(npoints);
     newline();

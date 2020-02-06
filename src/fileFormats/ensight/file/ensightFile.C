@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2015 OpenFOAM Foundation
-    Copyright (C) 2016-2019 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -29,7 +29,6 @@ License
 #include "ensightFile.H"
 #include "error.H"
 #include "UList.H"
-
 #include <cstring>
 #include <sstream>
 
@@ -82,6 +81,20 @@ void Foam::ensightFile::subDirWidth(const label n)
 Foam::label Foam::ensightFile::subDirWidth()
 {
     return mask_.size();
+}
+
+
+bool Foam::ensightFile::isUndef(const UList<scalar>& field)
+{
+    for (const scalar& val : field)
+    {
+        if (std::isnan(val))
+        {
+            return true;
+        }
+    }
+
+    return true;
 }
 
 
@@ -153,24 +166,13 @@ Foam::scalar Foam::ensightFile::undefValue(const scalar value)
 }
 
 
-Foam::Ostream& Foam::ensightFile::write
-(
-    const char* buf,
-    std::streamsize count
-)
-{
-    stdStream().write(buf, count);
-    return *this;
-}
-
-
-Foam::Ostream& Foam::ensightFile::write(const char* value)
+Foam::Ostream& Foam::ensightFile::writeString(const char* str)
 {
     // Output 80 chars, but allocate for trailing nul character
     // to avoid -Wstringop-truncation warnings/errors.
 
     char buf[80+1];
-    strncpy(buf, value, 80); // max 80 chars or padded with nul if smaller
+    strncpy(buf, str, 80); // max 80 chars or padded with nul if smaller
 
     if (format() == IOstream::BINARY)
     {
@@ -186,9 +188,38 @@ Foam::Ostream& Foam::ensightFile::write(const char* value)
 }
 
 
-Foam::Ostream& Foam::ensightFile::write(const string& value)
+Foam::Ostream& Foam::ensightFile::writeString(const std::string& str)
 {
-    return write(value.c_str());
+    return writeString(str.c_str());
+}
+
+
+Foam::Ostream& Foam::ensightFile::write(const char* str)
+{
+    return writeString(str);
+}
+
+
+Foam::Ostream& Foam::ensightFile::write(const word& str)
+{
+    return writeString(str);
+}
+
+
+Foam::Ostream& Foam::ensightFile::write(const string& str)
+{
+    return writeString(str);
+}
+
+
+Foam::Ostream& Foam::ensightFile::write
+(
+    const char* buf,
+    std::streamsize count
+)
+{
+    stdStream().write(buf, count);
+    return *this;
 }
 
 
@@ -244,6 +275,14 @@ Foam::Ostream& Foam::ensightFile::write(const scalar value)
 {
     float fvalue(value);
 
+    // TBD: limit range?
+    // #if defined(WM_DP)
+    // if (mag(value) < scalar(floatScalarVSMALL))
+    // {
+    //     fvalue = 0;
+    // }
+    // #endif
+
     if (format() == IOstream::BINARY)
     {
         write
@@ -282,17 +321,17 @@ Foam::Ostream& Foam::ensightFile::writeKeyword(const keyType& key)
 {
     if (allowUndef_)
     {
-        write(string(static_cast<const string&>(key) + " undef"));
+        writeString(key + " undef");
         newline();
         write(undefValue_);
         newline();
     }
     else
     {
-        // ensure we get ensightFile::write(const string&)
-        write(static_cast<const string&>(key));
+        writeString(key);
         newline();
     }
+
     return *this;
 }
 
@@ -301,7 +340,7 @@ Foam::Ostream& Foam::ensightFile::writeBinaryHeader()
 {
     if (format() == IOstream::BINARY)
     {
-        write("C Binary");
+        writeString("C Binary");
     }
 
     return *this;
@@ -314,7 +353,7 @@ Foam::Ostream& Foam::ensightFile::writeBinaryHeader()
 
 void Foam::ensightFile::beginPart(const label index)
 {
-    write("part");
+    writeString("part");
     newline();
     write(index+1); // Ensight starts with 1
     newline();
@@ -323,10 +362,20 @@ void Foam::ensightFile::beginPart(const label index)
 
 void Foam::ensightFile::beginParticleCoordinates(const label nparticles)
 {
-    write("particle coordinates");
+    writeString("particle coordinates");
     newline();
     write(nparticles, 8); // unusual width
     newline();
+}
+
+
+void Foam::ensightFile::writeLabels(const UList<label>& list)
+{
+    for (const label val : list)
+    {
+        write(val);
+        newline();
+    }
 }
 
 
@@ -342,7 +391,7 @@ void Foam::ensightFile::writeList(const UList<label>& field)
 
 void Foam::ensightFile::writeList(const UList<scalar>& field)
 {
-    for (const scalar& val : field)
+    for (const scalar val : field)
     {
         if (std::isnan(val))
         {
@@ -352,30 +401,6 @@ void Foam::ensightFile::writeList(const UList<scalar>& field)
         {
             write(val);
         }
-
-        newline();
-    }
-}
-
-
-
-void Foam::ensightFile::writeList
-(
-    const UList<scalar>& field,
-    const labelUList& addr
-)
-{
-    for (const label id : addr)
-    {
-        if (id < 0 || id >= field.size() || std::isnan(field[id]))
-        {
-            writeUndef();
-        }
-        else
-        {
-            write(field[id]);
-        }
-
         newline();
     }
 }
