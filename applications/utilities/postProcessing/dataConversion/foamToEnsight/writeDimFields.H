@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2018 OpenCFD Ltd.
+    Copyright (C) 2018-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -34,8 +34,8 @@ SourceFiles
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef writeDimFields_H
-#define writeDimFields_H
+#ifndef ensight_writeDimFields_H
+#define ensight_writeDimFields_H
 
 #include "writeVolFields.H"
 
@@ -49,9 +49,7 @@ label writeDimFields
 (
     ensightCase& ensCase,
     const ensightMesh& ensMesh,
-    const fvMeshSubsetProxy& proxy,
-    const IOobjectList& objects,
-    const bool nodeValues
+    const IOobjectList& objects
 )
 {
     typedef GeometricField<Type, fvPatchField, volMesh> GeoField;
@@ -62,6 +60,8 @@ label writeDimFields
             Type, fvPatchField, volMesh
         >::Internal DimField;
 
+
+    const fvMesh& mesh = ensMesh.mesh();
 
     label count = 0;
 
@@ -75,9 +75,7 @@ label writeDimFields
             (
                 ensCase,
                 ensMesh,
-                proxy,
-                getZeroGradField<GeoField>(io, proxy),
-                nodeValues
+                getZeroGradField<GeoField>(io, mesh)
             )
         )
         {
@@ -94,19 +92,16 @@ label writeAllDimFields
 (
     ensightCase& ensCase,
     const ensightMesh& ensMesh,
-    const fvMeshSubsetProxy& proxy,
-    const IOobjectList& objects,
-    const bool nodeValues
+    const IOobjectList& objects
 )
 {
     #undef  foamToEnsight_WRITE_FIELD
     #define foamToEnsight_WRITE_FIELD(PrimitiveType)    \
         writeDimFields<PrimitiveType>                   \
         (                                               \
-            ensCase, ensMesh,                           \
-            proxy,                                      \
-            objects,                                    \
-            nodeValues                                  \
+            ensCase,                                    \
+            ensMesh,                                    \
+            objects                                     \
         )
 
     label count = 0;

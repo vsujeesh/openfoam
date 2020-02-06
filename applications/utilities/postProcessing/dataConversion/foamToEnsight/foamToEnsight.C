@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2016 OpenFOAM Foundation
-    Copyright (C) 2016-2018 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -93,6 +93,7 @@ Note
 #include "HashOps.H"
 
 #include "fvc.H"
+#include "fvMesh.H"
 #include "fieldTypes.H"
 #include "volFields.H"
 #include "scalarIOField.H"
@@ -104,7 +105,6 @@ Note
 #include "ensightMesh.H"
 #include "ensightOutputCloud.H"
 #include "ensightOutputVolField.H"
-#include "fvMeshSubsetProxy.H"
 
 // local files
 #include "readFields.H"
@@ -114,16 +114,6 @@ Note
 #include "memInfo.H"
 
 using namespace Foam;
-
-//- Get internal field and make it a zero-gradient volume field with subsetting
-template<class GeoField>
-tmp<GeoField>
-getZeroGradInternalField(IOobject& io, const fvMeshSubsetProxy& proxy)
-{
-    auto tfield = tmp<typename GeoField::Internal>::New(io, proxy.baseMesh());
-    return proxy.interpolateInternal(tfield);
-}
-
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -192,12 +182,20 @@ int main(int argc, char *argv[])
         "Specify single or multiple fields to write (all by default)\n"
         "Eg, 'T' or '( \"U.*\" )'"
     );
+#if 0
     argList::addOption
     (
-        "cellZone",
-        "word",
-        "Specify cellZone to write"
+        "cellZones",
+        "wordRes",
+        "Specify single or multiple cellZones to write\n"
+        "Eg, 'cells' or '( slice \"mfp-.*\" )'.",
+        true  // mark as an advanced option
     );
+    argList::addOptionCompat("cellZone", {"cellZones", 1912});
+#else
+    argList::ignoreOptionCompat({"cellZones", 1912}, true);  // has argument
+#endif
+
     argList::addOption
     (
         "name",
@@ -220,8 +218,6 @@ int main(int argc, char *argv[])
       ? IOstream::ASCII
       : IOstream::BINARY
     );
-
-    const bool nodeValues = args.found("nodeValues");
 
     cpuTime timer;
     memInfo mem;
@@ -286,22 +282,11 @@ int main(int argc, char *argv[])
     wordRes fieldPatterns;
     args.readListIfPresent<wordRe>("fields", fieldPatterns);
 
-    word cellZoneName;
-    if (args.readIfPresent("cellZone", cellZoneName))
-    {
-        Info<< "Converting cellZone " << cellZoneName
-            << " only, with new outside faces as \"oldInternalFaces\"."
-            << nl;
-    }
-
-    // Ignored (unproxied) if cellZoneName is empty
-    fvMeshSubsetProxy meshProxy(mesh, fvMeshSubsetProxy::ZONE, cellZoneName);
-
     // New ensight case file, initialize header etc.
     ensightCase ensCase(outputDir, args.globalCaseName(), caseOpts);
 
-    // Construct the Ensight mesh
-    ensightMesh ensMesh(meshProxy.mesh(), writeOpts);
+    // Construct ensight mesh
+    ensightMesh ensMesh(mesh, writeOpts);
 
     if (Pstream::master())
     {
@@ -350,7 +335,7 @@ int main(int argc, char *argv[])
         wordList objectNames(objects.sortedNames());
 
         // Check availability for all times...
-        checkData(meshProxy.baseMesh(), timeDirs, objectNames);
+        checkData(mesh, timeDirs, objectNames);
 
         testedObjectNames = objectNames;
     }
@@ -366,7 +351,6 @@ int main(int argc, char *argv[])
         polyMesh::readUpdateState meshState = mesh.readUpdate();
         if (meshState != polyMesh::UNCHANGED)
         {
-            meshProxy.correct();
             ensMesh.expire();
             ensMesh.correct();
         }
@@ -378,7 +362,7 @@ int main(int argc, char *argv[])
         }
 
         // Objects at this time
-        IOobjectList objects(meshProxy.baseMesh(), runTime.timeName());
+        IOobjectList objects(mesh, runTime.timeName());
 
         // Restrict to objects that are available for all times
         objects.filterObjects(testedObjectNames);
@@ -386,7 +370,7 @@ int main(int argc, char *argv[])
         // Volume, internal, point fields
         #include "convertVolumeFields.H"
 
-        // Write lagrangian data
+        // Lagrangian fields
         #include "convertLagrangian.H"
 
         Info<< "Wrote in "

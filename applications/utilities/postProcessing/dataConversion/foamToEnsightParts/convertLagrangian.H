@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2018 OpenCFD Ltd.
+    Copyright (C) 2018-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -48,11 +48,7 @@ if (doLagrangian)
         Info<< "Write " << cloudName << " (";
 
         const bool cloudExists =
-            returnReduce
-            (
-                currentCloudDirs.found(cloudName),
-                orOp<bool>()
-            );
+            returnReduce(currentCloudDirs.found(cloudName), orOp<bool>());
 
         {
             autoPtr<ensightFile> os = ensCase.newCloud(cloudName);

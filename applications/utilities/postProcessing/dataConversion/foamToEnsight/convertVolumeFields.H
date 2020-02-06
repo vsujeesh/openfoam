@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2018 OpenCFD Ltd.
+    Copyright (C) 2018-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -35,23 +35,8 @@ Description
 {
     Info<< "Write volume field (";
 
-    writeAllVolFields
-    (
-        ensCase,
-        ensMesh,
-        meshProxy,
-        objects,
-        nodeValues
-    );
-
-    writeAllDimFields
-    (
-        ensCase,
-        ensMesh,
-        meshProxy,
-        objects,
-        nodeValues
-    );
+    writeAllVolFields(ensCase, ensMesh, objects);
+    writeAllDimFields(ensCase, ensMesh, objects);
 
     Info<< " )" << nl;
 }

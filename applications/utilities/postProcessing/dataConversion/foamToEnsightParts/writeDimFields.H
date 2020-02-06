@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2018 OpenCFD Ltd.
+    Copyright (C) 2018-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -34,8 +34,8 @@ SourceFiles
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef ensightParts_writeDimFields_H
-#define ensightParts_writeDimFields_H
+#ifndef foamToEnsightParts_writeDimFields_H
+#define foamToEnsightParts_writeDimFields_H
 
 #include "writeVolFields.H"
 
@@ -100,7 +100,8 @@ label writeAllDimFields
     #define foamToEnsight_WRITE_FIELD(PrimitiveType)    \
         writeDimFields<PrimitiveType>                   \
         (                                               \
-            ensCase, ensParts,                          \
+            ensCase,                                    \
+            ensParts,                                   \
             mesh,                                       \
             objects                                     \
         )

@@ -1,5 +1,4 @@
-// check for "points" in all of the result directories
-// - could restrict to the selected times
+// Check for "points" in any of the result directories
 
 bool meshMoving = false;
 
@@ -9,14 +8,17 @@ if (timeDirs.size() > 1 && Pstream::master())
     // See if any other "polyMesh/points" files exist too.
 
     Info<< "Search for moving mesh ... " << flush;
-    forAll(timeDirs, timeI)
+    for (const instant& inst : timeDirs)
     {
+        const word& timeName = inst.name();
+
         meshMoving =
         (
-            IOobject
+            timeName != mesh.pointsInstance()
+         && IOobject
             (
                 "points",
-                timeDirs[timeI].name(),
+                timeName,
                 polyMesh::meshSubDir,
                 mesh,
                 IOobject::NO_READ,
@@ -33,8 +35,7 @@ if (timeDirs.size() > 1 && Pstream::master())
 
     if (meshMoving)
     {
-        Info<< "found." << nl
-            << "    Writing meshes for every timestep." << endl;
+        Info<< "found. Writing meshes for every timestep." << endl;
     }
     else
     {

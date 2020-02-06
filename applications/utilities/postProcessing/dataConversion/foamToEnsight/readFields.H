@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2018 OpenCFD Ltd.
+    Copyright (C) 2018-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -27,7 +27,8 @@ InNamespace
     Foam
 
 Description
-    Read fields from disk for foamToEnsight
+    Helper routines for reading a field or fields,
+    for foamToEnsight
 
 SourceFiles
     readFields.C
@@ -46,30 +47,36 @@ SourceFiles
 namespace Foam
 {
 
-//- Get the field and subset it, or return nullptr
+//- Get the field or return nullptr
 template<class GeoField>
-tmp<GeoField> getField(const IOobject* io, const fvMeshSubsetProxy& proxy)
+tmp<GeoField> getField
+(
+    const IOobject* io,
+    const typename GeoField::Mesh& mesh
+)
 {
     if (io)
     {
-        auto tfield = tmp<GeoField>::New(*io, proxy.baseMesh());
-        return proxy.interpolate(tfield);
+        return tmp<GeoField>::New(*io, mesh);
     }
 
     return nullptr;
 }
 
 
-//- Get internal field and make it a zero-gradient volume field with subsetting
+//- Get internal field and make it a zero-gradient volume field
 template<class GeoField>
 tmp<GeoField>
-getZeroGradField(const IOobject* io, const fvMeshSubsetProxy& proxy)
+getZeroGradField(const IOobject* io, const fvMesh& mesh)
 {
     if (io)
     {
-        auto tfield =
-            tmp<typename GeoField::Internal>::New(*io, proxy.baseMesh());
-        return proxy.interpolateInternal(tfield);
+        auto tdimfield = tmp<typename GeoField::Internal>::New(*io, mesh);
+
+        auto tfield = fvMeshSubsetProxy::zeroGradientField(tdimfield());
+        tdimfield.clear();
+
+        return tfield;
     }
 
     return nullptr;

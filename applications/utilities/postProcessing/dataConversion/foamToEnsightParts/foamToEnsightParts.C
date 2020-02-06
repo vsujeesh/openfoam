@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2016 OpenFOAM Foundation
-    Copyright (C) 2016-2018 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -88,6 +88,7 @@ Note
 #include "PstreamCombineReduceOps.H"
 #include "HashOps.H"
 
+#include "fvMesh.H"
 #include "fieldTypes.H"
 #include "volFields.H"
 #include "scalarIOField.H"
@@ -99,7 +100,6 @@ Note
 #include "ensightParts.H"
 #include "ensightOutputCloud.H"
 #include "ensightOutputVolField.H"
-#include "fvMeshSubsetProxy.H"
 
 // local files
 #include "readFields.H"
@@ -215,22 +215,11 @@ int main(int argc, char *argv[])
     // Define sub-directory name to use for EnSight data.
     // The path to the ensight directory is at case level only
     // - For parallel cases, data only written from master
-    fileName ensightDir = args.get<word>("name", "Ensight");
-    if (!ensightDir.isAbsolute())
+    fileName outputDir = args.get<word>("name", "Ensight");
+    if (!outputDir.isAbsolute())
     {
-        ensightDir = args.globalPath()/ensightDir;
+        outputDir = args.globalPath()/outputDir;
     }
-
-    //
-    // Open new ensight case file, initialize header etc.
-    //
-    ensightCase ensCase
-    (
-        ensightDir,
-        "Ensight",  // args.globalCaseName(),
-        caseOpts
-    );
-
 
     //
     // Output configuration
@@ -251,19 +240,26 @@ int main(int argc, char *argv[])
     wordRes fieldPatterns;
     args.readListIfPresent<wordRe>("fields", fieldPatterns);
 
+    // New ensight case file, initialize header etc.
+    ensightCase ensCase
+    (
+        outputDir,
+        "Ensight",  // args.globalCaseName(),
+        caseOpts
+    );
 
-    // Construct the list of ensight parts for the entire mesh
+    // Construct ensight parts for the entire mesh
     ensightParts ensParts(mesh);
 
     // Write summary information
     if (Pstream::master())
     {
-        Info<< "Converting " << timeDirs.size() << " time steps" << endl;
+        Info<< "Converting " << timeDirs.size() << " time steps" << nl;
 
         OFstream info(ensCase.path()/"partsInfo");
 
         info
-            << "// summary of ensight parts" << nl << nl;
+            << "// Summary of ensight parts" << nl << nl;
         ensParts.writeSummary(info);
     }
 
@@ -336,7 +332,7 @@ int main(int argc, char *argv[])
             if (doGeometry)
             {
                 autoPtr<ensightGeoFile> os = ensCase.newGeometry(meshMoving);
-                ensParts.write(os.ref());
+                ensParts.write(os);
             }
         }
 
@@ -361,7 +357,7 @@ int main(int argc, char *argv[])
 
     Info<< "\nEnd: "
         << timer.elapsedCpuTime() << " s, "
-        << mem.update().peak() << " kB (peak)\n" << endl;
+        << mem.update().peak() << " kB (peak)" << nl << endl;
 
     return 0;
 }
