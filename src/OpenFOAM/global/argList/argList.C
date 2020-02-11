@@ -187,7 +187,7 @@ Foam::argList::initValidTables::initValidTables()
 //         "noFunctionObjects", {"no-function-objects", 0}
 //     );
 
-//    Pstream::addValidParOptions(validParOptions);
+    Pstream::addValidParOptions(validParOptions);
 }
 
 Foam::argList::initValidTables dummyInitValidTables;

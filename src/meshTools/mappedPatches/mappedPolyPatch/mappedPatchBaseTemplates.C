@@ -28,21 +28,24 @@ License
 template<class Type>
 void Foam::mappedPatchBase::distribute(List<Type>& lst) const
 {
+    const label oldComm(Pstream::warnComm);
+    Pstream::warnComm = map().comm();
     switch (mode_)
     {
         case NEARESTPATCHFACEAMI:
         {
+            const label oldWorldComm = Pstream::worldComm;
+            Pstream::worldComm = comm_;
             lst = AMI().interpolateToSource(Field<Type>(std::move(lst)));
+            Pstream::worldComm = oldWorldComm;
             break;
         }
         default:
         {
-            const label oldComm(Pstream::warnComm);
-            Pstream::warnComm = map().comm();
             map().distribute(lst);
-            Pstream::warnComm = oldComm;
         }
     }
+    Pstream::warnComm = oldComm;
 }
 
 
@@ -53,17 +56,20 @@ void Foam::mappedPatchBase::distribute
     const CombineOp& cop
 ) const
 {
+    const label oldComm(Pstream::warnComm);
+    Pstream::warnComm = comm_;
     switch (mode_)
     {
         case NEARESTPATCHFACEAMI:
         {
+            const label oldWorldComm = Pstream::worldComm;
+            Pstream::worldComm = comm_;
             lst = AMI().interpolateToSource(Field<Type>(std::move(lst)), cop);
+            Pstream::worldComm = oldWorldComm;
             break;
         }
         default:
         {
-            const label oldComm(Pstream::warnComm);
-            Pstream::warnComm = comm_;
             mapDistributeBase::distribute
             (
                 Pstream::defaultCommsType,
@@ -80,31 +86,34 @@ void Foam::mappedPatchBase::distribute
                 UPstream::msgType(),
                 comm_
             );
-            Pstream::warnComm = oldComm;
         }
     }
+    Pstream::warnComm = oldComm;
 }
 
 
 template<class Type>
 void Foam::mappedPatchBase::reverseDistribute(List<Type>& lst) const
 {
+    const label oldComm(Pstream::warnComm);
+    Pstream::warnComm = map().comm();
     switch (mode_)
     {
         case NEARESTPATCHFACEAMI:
         {
+            const label oldWorldComm = Pstream::worldComm;
+            Pstream::worldComm = comm_;
             lst = AMI().interpolateToTarget(Field<Type>(std::move(lst)));
+            Pstream::worldComm = oldWorldComm;
             break;
         }
         default:
         {
-            const label oldComm(Pstream::warnComm);
-            Pstream::warnComm = map().comm();
             map().reverseDistribute(sampleSize(), lst);
-            Pstream::warnComm = oldComm;
             break;
         }
     }
+    Pstream::warnComm = oldComm;
 }
 
 
@@ -115,18 +124,20 @@ void Foam::mappedPatchBase::reverseDistribute
     const CombineOp& cop
 ) const
 {
+    const label oldComm(Pstream::warnComm);
+    Pstream::warnComm = map().comm();
     switch (mode_)
     {
         case NEARESTPATCHFACEAMI:
         {
+            const label oldWorldComm = Pstream::worldComm;
+            Pstream::worldComm = comm_;
             lst = AMI().interpolateToTarget(Field<Type>(std::move(lst)), cop);
+            Pstream::worldComm = oldWorldComm;
             break;
         }
         default:
         {
-            const label oldComm(Pstream::warnComm);
-            Pstream::warnComm = map().comm();
-
             label cSize = sampleSize();
             mapDistributeBase::distribute
             (
@@ -144,10 +155,10 @@ void Foam::mappedPatchBase::reverseDistribute
                 UPstream::msgType(),
                 comm_
             );
-            Pstream::warnComm = oldComm;
             break;
         }
     }
+    Pstream::warnComm = oldComm;
 }
 
 

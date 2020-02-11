@@ -204,8 +204,6 @@ Foam::mappedPatchFieldBase<Type>::mappedField
 
     const fvMesh& thisMesh = patchField_.patch().boundaryMesh().mesh();
 
-    const bool isSampleWorld = true;
-
     // Result of obtaining remote values
     auto tnewValues = tmp<Field<Type>>::New();
     auto& newValues = tnewValues.ref();
@@ -218,56 +216,53 @@ Foam::mappedPatchFieldBase<Type>::mappedField
 
             if (interpolationScheme_ != interpolationCell<Type>::typeName)
             {
+                if (!mapper_.sameWorld())
+                {
+                    FatalErrorInFunction
+                        << "Interpolating cell values from different world"
+                        << " currently not supported" << exit(FatalError);
+                }
+
                 const fvMesh& nbrMesh =
                     refCast<const fvMesh>(mapper_.sampleMesh());
 
                 // Send back sample points to the processor that holds the cell
                 vectorField samples(mapper_.samplePoints());
 
-                label nRemoteCells = 0;
-                if (isSampleWorld)
-                {
-                    nRemoteCells = 
+                distMap.reverseDistribute
+                (
                     (
                         mapper_.sameRegion()
                       ? thisMesh.nCells()
                       : nbrMesh.nCells()
-                    );
-                }
-
-                distMap.reverseDistribute
-                (
-                    nRemoteCells,
+                    ),
                     point::max,
                     samples
                 );
 
-                if (isSampleWorld)
+                auto interpolator =
+                    interpolation<Type>::New
+                    (
+                        interpolationScheme_,
+                        fld
+                    );
+
+                const auto& interp = *interpolator;
+
+                newValues.setSize(samples.size(), pTraits<Type>::max);
+                forAll(samples, celli)
                 {
-                    auto interpolator =
-                        interpolation<Type>::New
-                        (
-                            interpolationScheme_,
-                            fld
-                        );
-
-                    const auto& interp = *interpolator;
-
-                    newValues.setSize(samples.size(), pTraits<Type>::max);
-                    forAll(samples, celli)
+                    if (samples[celli] != point::max)
                     {
-                        if (samples[celli] != point::max)
-                        {
-                            newValues[celli] = interp.interpolate
-                            (
-                                samples[celli],
-                                celli
-                            );
-                        }
+                        newValues[celli] = interp.interpolate
+                        (
+                            samples[celli],
+                            celli
+                        );
                     }
                 }
             }
-            else if (isSampleWorld)
+            else
             {
                 newValues = fld;
             }
@@ -280,7 +275,7 @@ Foam::mappedPatchFieldBase<Type>::mappedField
         case mappedPatchBase::NEARESTPATCHFACEAMI:
         {
             const mapDistribute& distMap = mapper_.map();
-            if (isSampleWorld)
+            if (mapper_.sameWorld())
             {
                 const fvMesh& nbrMesh =
                     refCast<const fvMesh>(mapper_.sampleMesh());
@@ -301,6 +296,12 @@ Foam::mappedPatchFieldBase<Type>::mappedField
 
                 newValues = nbrField.boundaryField()[nbrPatchID];
             }
+            else
+            {
+                // Start off from my patch values, let distribute function below
+                // do all the work
+                newValues = patchField_;
+            }
             mapper_.distribute(newValues);
 
             break;
@@ -308,7 +309,7 @@ Foam::mappedPatchFieldBase<Type>::mappedField
         case mappedPatchBase::NEARESTFACE:
         {
             Field<Type> allValues;
-            if (isSampleWorld)
+            if (mapper_.sameWorld())
             {
                 const fvMesh& nbrMesh =
                     refCast<const fvMesh>(mapper_.sampleMesh());
@@ -318,6 +319,24 @@ Foam::mappedPatchFieldBase<Type>::mappedField
                 const auto& nbrField = fld;
 
                 for (const fvPatchField<Type>& pf : nbrField.boundaryField())
+                {
+                    label faceStart = pf.patch().start();
+
+                    forAll(pf, facei)
+                    {
+                        allValues[faceStart++] = pf[facei];
+                    }
+                }
+            }
+            else
+            {
+                // Start off from my patch values. Let distribute function below
+                // do all the work
+                allValues.setSize(thisMesh.nFaces(), Zero);
+
+                const auto& nbrField = fld;
+
+                for (const fvPatchField<Type>& pf : fld.boundaryField())
                 {
                     label faceStart = pf.patch().start();
 

@@ -151,7 +151,9 @@ inline Foam::label Foam::mappedPatchBase::comm() const
 
 inline bool Foam::mappedPatchBase::sameWorld() const
 {
-    return !UPstream::worlds().size() || (UPstream::myWorld() == sampleWorld_);
+    return
+        UPstream::allWorlds().size() == 1
+     || UPstream::myWorld() == sampleWorld_;
 }
 
 

@@ -290,15 +290,38 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
 
     if (worldIndex != -1)
     {
-        worlds_.setSize(numprocs);
-        worlds_[Pstream::myProcNo()] = world;
-        Pstream::gatherList(worlds_);
-        Pstream::scatterList(worlds_);
+        wordList worlds(numprocs);
+        worlds[Pstream::myProcNo()] = world;
+        Pstream::gatherList(worlds);
+
+        // Compact
+        if (Pstream::master())
+        {
+            DynamicList<word> allWorlds(numprocs);
+            for (const auto& world : worlds)
+            {
+                if (!allWorlds.found(world))
+                {
+                    allWorlds.append(world);
+                }
+            }
+            allWorlds_ = std::move(allWorlds);
+
+            worldIDs_.setSize(numprocs);
+            forAll(worlds, proci)
+            {
+                const word& world = worlds[proci];
+                worldIDs_[proci] = allWorlds_.find(world);
+            }
+        }
+        Pstream::scatterList(allWorlds_);
+        Pstream::scatterList(worldIDs_);
+
 
         DynamicList<label> subRanks;
-        forAll(worlds_, proci)
+        forAll(worlds, proci)
         {
-            if (worlds_[proci] == worlds_[Pstream::myProcNo()])
+            if (worlds[proci] == worlds[Pstream::myProcNo()])
             {
                 subRanks.append(proci);
             }
@@ -314,12 +337,6 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
         // Override Pout prefix (move to setParRun?)
         Pout.prefix() = '[' + world + '/' +  name(myProcNo(subComm)) + "] ";
         Perr.prefix() = '[' + world + '/' +  name(myProcNo(subComm)) + "] ";
-
-
-DebugVar(worlds_);
-DebugVar(subRanks);
-DebugVar(subComm);
-
     }
 
     attachOurBuffers();

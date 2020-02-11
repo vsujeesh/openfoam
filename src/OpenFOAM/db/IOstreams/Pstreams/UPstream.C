@@ -372,7 +372,8 @@ Foam::DynamicList<Foam::label> Foam::UPstream::parentCommunicator_(10);
 
 int Foam::UPstream::msgType_(1);
 
-Foam::wordList Foam::UPstream::worlds_(1, "");
+Foam::wordList Foam::UPstream::allWorlds_(1, "");
+Foam::labelList Foam::UPstream::worldIDs_(1, 0);
 
 Foam::DynamicList<Foam::List<Foam::UPstream::commsStruct>>
 Foam::UPstream::linearCommunication_(10);
