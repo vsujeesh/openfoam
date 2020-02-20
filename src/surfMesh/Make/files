@@ -25,6 +25,8 @@ surfZone/surfZoneIOList.C
 surfaceFormats = surfaceFormats
 $(surfaceFormats)/surfaceFormatsCore.C
 
+$(surfaceFormats)/abaqus/ABAQUSsurfaceFormatCore.C
+$(surfaceFormats)/abaqus/ABAQUSsurfaceFormatRunTime.C
 $(surfaceFormats)/ac3d/AC3DsurfaceFormatCore.C
 $(surfaceFormats)/ac3d/AC3DsurfaceFormatRunTime.C
 $(surfaceFormats)/fire/FLMAsurfaceFormatRunTime.C
@@ -59,6 +61,7 @@ triSurface/patches/surfacePatch.C
 writers = writers
 
 $(writers)/surfaceWriter.C
+$(writers)/abaqus/abaqusSurfaceWriter.C
 $(writers)/boundaryData/boundaryDataSurfaceWriter.C
 $(writers)/ensight/ensightSurfaceWriter.C
 $(writers)/foam/foamSurfaceWriter.C
