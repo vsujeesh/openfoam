@@ -167,6 +167,7 @@ template<class Face>
 Foam::MeshedSurface<Face>::MeshedSurface()
 :
     ParentType(List<Face>(), pointField()),
+    faceIds_(),
     zones_()
 {}
 
@@ -178,6 +179,7 @@ Foam::MeshedSurface<Face>::MeshedSurface
 )
 :
     ParentType(surf.surfFaces(), surf.points()),
+    faceIds_(surf.faceIds_),
     zones_(surf.zones_)
 {}
 
@@ -238,6 +240,7 @@ Foam::MeshedSurface<Face>::MeshedSurface
 )
 :
     ParentType(faceLst, pointLst), // Copy construct
+    faceIds_(),
     zones_(zoneLst)
 {}
 
@@ -251,6 +254,7 @@ Foam::MeshedSurface<Face>::MeshedSurface
 )
 :
     ParentType(faceLst, pointLst, true), // Move construct
+    faceIds_(),
     zones_(zoneLst)
 {}
 
@@ -265,6 +269,7 @@ Foam::MeshedSurface<Face>::MeshedSurface
 )
 :
     ParentType(faceLst, pointLst), // Copy construct
+    faceIds_(),
     zones_()
 {
     if (zoneSizes.size())
@@ -291,6 +296,7 @@ Foam::MeshedSurface<Face>::MeshedSurface
 )
 :
     ParentType(faceLst, pointLst, true), // Move construct
+    faceIds_(),
     zones_()
 {
     if (zoneSizes.size())
@@ -559,6 +565,7 @@ void Foam::MeshedSurface<Face>::clear()
 
     storedPoints().clear();
     storedFaces().clear();
+    storedFaceIds().clear();
     storedZones().clear();
 }
 
@@ -677,6 +684,17 @@ bool Foam::MeshedSurface<Face>::stitchFaces
         }
         faceMap.resize(newFacei);
         faceLst.resize(newFacei);
+
+        // The faceMap is a newToOld mapping and only removes elements
+        if (faceIds_.size())
+        {
+            forAll(faceMap, facei)
+            {
+                faceIds_[facei] = faceIds_[faceMap[facei]];
+            }
+
+            faceIds_.resize(newFacei);
+        }
 
         remapFaces(faceMap);
     }
@@ -837,6 +855,17 @@ bool Foam::MeshedSurface<Face>::checkFaces
         faceMap.resize(newFacei);
         faceLst.resize(newFacei);
 
+        // The faceMap is a newToOld mapping and only removes elements
+        if (faceIds_.size())
+        {
+            forAll(faceMap, facei)
+            {
+                faceIds_[facei] = faceIds_[faceMap[facei]];
+            }
+
+            faceIds_.resize(newFacei);
+        }
+
         remapFaces(faceMap);
     }
     faceMap.clear();
@@ -966,6 +995,8 @@ Foam::label Foam::MeshedSurface<Face>::triangulate
         }
         return 0;
     }
+
+    this->storedFaceIds().clear();  // Invalid or misleading
 
     List<Face>  newFaces(nTri);
     List<label> faceMap;
@@ -1106,11 +1137,20 @@ Foam::MeshedSurface<Face>::subsetMeshImpl
         zone.size() = newFacei - zone.start();
     }
 
+
+    // Subset of faceIds. Can be empty.
+    labelList newFaceIds;
+    if (faceIds_.size())
+    {
+        newFaceIds = labelUIndList(faceIds_, faceMap);
+    }
+
     // Construct the sub-surface
     MeshedSurface<Face> newSurf;
     newSurf.storedFaces().transfer(newFaces);
     newSurf.storedPoints().transfer(newPoints);
     newSurf.storedZones().transfer(newZones);
+    newSurf.storedFaceIds().transfer(newFaceIds);
 
     return newSurf;
 }
@@ -1212,6 +1252,7 @@ void Foam::MeshedSurface<Face>::swap
     this->storedPoints().swap(surf.storedPoints());
     this->storedFaces().swap(surf.storedFaces());
     this->storedZones().swap(surf.storedZones());
+    this->storedFaceIds().swap(surf.storedFaceIds());
 }
 
 
@@ -1227,6 +1268,7 @@ void Foam::MeshedSurface<Face>::transfer
     this->storedPoints().transfer(pointLst);
     this->storedFaces().transfer(faceLst);
     this->storedZones().clear();
+    this->storedFaceIds().clear();  // Likely to be invalid
 }
 
 
@@ -1246,6 +1288,7 @@ void Foam::MeshedSurface<Face>::transfer
     this->storedPoints().transfer(surf.storedPoints());
     this->storedFaces().transfer(surf.storedFaces());
     this->storedZones().transfer(surf.storedZones());
+    this->storedFaceIds().transfer(surf.storedFaceIds());
 
     surf.clear();
 }
@@ -1303,6 +1346,8 @@ template<class Face>
 void Foam::MeshedSurface<Face>::swapFaces(List<Face>& faces)
 {
     ParentType::clearOut();  // Topology changes
+
+    this->storedFaceIds().clear();  // Likely to be invalid
 
     this->storedFaces().swap(faces);
 }
@@ -1373,6 +1418,7 @@ void Foam::MeshedSurface<Face>::operator=(const MeshedSurface<Face>& surf)
 
     this->storedPoints() = surf.points();
     this->storedFaces()  = surf.surfFaces();
+    this->storedFaceIds() = surf.faceIds();
     this->storedZones()  = surf.surfZones();
 }
 
@@ -1391,7 +1437,9 @@ Foam::MeshedSurface<Face>::operator Foam::MeshedSurfaceProxy<Face>() const
     (
         this->points(),
         this->surfFaces(),
-        this->surfZones()
+        this->surfZones(),
+        labelUList::null(), // faceMap = none
+        this->faceIds()
     );
 }
 

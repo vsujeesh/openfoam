@@ -86,7 +86,7 @@ Usage
         surface  | surface name in triSurface/             | yes      |
         patches  | Limit to named surface regions (wordRes) | no  |
         source   | cells/insideCells/boundaryFaces         | yes      |
-        keepIds  | pass through id numbering               | no       | false
+        keepIds  | pass through id numbering               | no       | true
     \endtable
 
 SourceFiles
@@ -152,10 +152,6 @@ private:
 
         //- Retain element ids/order of original surface
         bool keepIds_;
-
-        //- List of element ids/order of the original surface,
-        //- when keepIds is active.
-        labelList originalIds_;
 
         //- For compatibility with the meshSurf interface
         labelList zoneIds_;
@@ -255,6 +251,12 @@ public:
             return zoneIds_;
         }
 
+        //- Per-face identifier (eg, element Id)
+        virtual const labelList& faceIds() const
+        {
+            return MeshStorage::faceIds();
+        }
+
         //- Face area vectors
         virtual const vectorField& Sf() const
         {
@@ -276,14 +278,7 @@ public:
         //- If element ids/order of the original surface are kept
         virtual bool hasFaceIds() const
         {
-            return keepIds_;
-        }
-
-        //- List of element ids/order of the original surface,
-        //  when keepIds is active.
-        virtual const labelList& originalIds() const
-        {
-            return originalIds_;
+            return keepIds_ && !MeshStorage::faceIds().empty();
         }
 
         //- Sampling boundary values instead of cell values
