@@ -1,0 +1,3 @@
+atmInitialise.C
+
+EXE = $(FOAM_APPBIN)/atmInitialise

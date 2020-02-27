@@ -1,0 +1,190 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v1912                                 |
+|   \\  /    A nd           | Web:      www.OpenFOAM.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      atmInitialiseDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Optional: Initialise velocity field, U
+U
+{
+    // Mandatory entries
+    initMode            logNeutral;
+        // options=(logNeutral|geostrophic|ekman|table)
+    Uh                  10.0;
+    h                   100.0;
+    flowDir             (1 0 0);
+
+    // Optional entries
+    d                   0.0;
+    kappa               0.40;
+    interpMode          linear;  // options=(linear|cubic)
+    initInternal        true;
+    initPatch           true;
+
+    // Conditional mandatory entries
+    // (when table=on)
+    inpTable
+    (
+    // z    u     v    w
+       (0   (0.1  0.1  0))
+       (12  (0.1  0.1  0))
+       (38  (0.1  0.1  0))
+    );
+}
+
+
+// Optional: Initialise temperature field, T
+T
+{
+    // Mandatory entries
+    initMode            geostrophic; // options=(geostrophic|table)
+
+    // Optional entries
+    interpMode          cubic;       // options=(linear|cubic)
+    initInternal        true;
+    initPatch           true;
+
+    // Conditional mandatory entries
+    // (when geostrophic=on)
+    Tground             300;
+    Ttop                304;
+    zInversion          700;
+    wInversion          100;
+    dTdz                0.003;
+
+    // (when table=on)
+    inpTable
+    (
+    // z    T
+       (0   0.1)
+       (12  0.1)
+       (38  0.1)
+    );
+}
+
+
+// Optional: Initialise turbulent kinetic energy field, k
+k
+{
+    // Mandatory entries
+    initMode            geostrophic; // options=(logNeutral|geostrophic|table)
+    kAmb                1e-4;
+
+    // Optional entries
+    interpMode          cubic;       // options=(linear|cubic)
+    initInternal        true;
+    initPatch           true;
+
+    // Conditional mandatory entries
+    // (when logNeutral=on)
+    Uh                  10.0;
+    h                   0.0;
+    z0                  1.0;
+    kappa               0.40;
+    Cmu                 0.09;
+
+    // (when geostrophic=on)
+    zInversion          200;
+
+    // (when table=on)
+    inpTable
+    (
+    // z    k
+       (0   0.1)
+       (12  0.1)
+       (38  0.1)
+    );
+}
+
+
+// Optional: Initialise turbulent kinetic energy dissipation rate field, epsilon
+epsilon
+{
+    // Mandatory entries
+    initMode            geostrophic; // options=(logNeutral|geostrophic|table)
+    epsilonAmb          1.0;
+    z0                  1.0;
+
+    // Optional entries
+    interpMode          cubic;       // options=(linear|cubic)
+    initInternal        true;
+    initPatch           true;
+
+    // Conditional mandatory entries
+    // (when logNeutral=on)
+    Uh                  10.0;
+    h                   0.0;
+    kappa               0.40;
+
+    // (when geostrophic=on)
+    phim                1.0;
+    Lmax                1.0;
+    zInversion          200;
+    Cmu                 0.09;
+
+    // (when table=on)
+    inpTable
+    (
+    // z    epsilon
+       (0   0.1)
+       (12  0.1)
+       (38  0.1)
+    );
+}
+
+
+// Optional: Initialise specific dissipation rate, omega
+omega
+{
+    // Mandatory entries
+    initMode            geostrophic; // options=(logNeutral|geostrophic|table)
+    omegaAmb            1.0;
+    z0                  1.0;
+
+    // Optional entries
+    interpMode          cubic;       // options=(linear|cubic)
+    initInternal        true;
+    initPatch           true;
+
+    // Conditional mandatory entries
+    // (when logNeutral=on)
+    Uh                  10.0;
+    h                   0.0;
+    kappa               0.40;
+
+    // (when geostrophic=on)
+    phim                1.0;
+    Lmax                1.0;
+    zInversion          200;
+    Cmu                 0.09;
+
+    // (when table=on)
+    inpTable
+    (
+    // z    omega
+       (0   0.1)
+       (12  0.1)
+       (38  0.1)
+    );
+}
+
+
+// Optional: Initialise p_rgh
+p_rgh
+{
+    // Mandatory entries
+    pRef                0;
+}
+
+
+// ************************************************************************* //
