@@ -274,8 +274,9 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
 
     if (debug)
     {
-        Pout<< "UPstream::init : procs=" << numprocs
-            << " rank:" << myRank << endl;
+        Pout<< "UPstream::init : procs:" << numprocs
+            << " rank:" << myRank
+            << " world:" << world << endl;
     }
 
     if (worldIndex == -1 && numprocs <= 1)
@@ -314,9 +315,8 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
                 worldIDs_[proci] = allWorlds_.find(world);
             }
         }
-        Pstream::scatterList(allWorlds_);
-        Pstream::scatterList(worldIDs_);
-
+        Pstream::scatter(allWorlds_);
+        Pstream::scatter(worldIDs_);
 
         DynamicList<label> subRanks;
         forAll(worlds, proci)
