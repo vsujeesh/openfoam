@@ -3,9 +3,16 @@ cd "${0%/*}" || exit                                # Run from this directory
 . ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions        # Tutorial run functions
 #------------------------------------------------------------------------------
 
+restore0Dir
+
+cp -f $FOAM_TUTORIALS/resources/geometry/flange.ans .
+
 runApplication ansysToFoam flange.ans -scale 0.001
+
 runApplication $(getApplication)
+
 runApplication foamToEnsight -noZero
+
 runApplication foamToVTK
 
 #------------------------------------------------------------------------------

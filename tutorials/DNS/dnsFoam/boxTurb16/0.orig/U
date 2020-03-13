@@ -10,7 +10,6 @@ FoamFile
     version     2.0;
     format      ascii;
     class       volVectorField;
-    location    "0";
     object      U;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -4121,27 +4120,7 @@ internalField   nonuniform List<vector>
 
 boundaryField
 {
-    patch0_half0
-    {
-        type            cyclic;
-    }
-    patch0_half1
-    {
-        type            cyclic;
-    }
-    patch1_half0
-    {
-        type            cyclic;
-    }
-    patch1_half1
-    {
-        type            cyclic;
-    }
-    patch2_half0
-    {
-        type            cyclic;
-    }
-    patch2_half1
+    "patch.*"
     {
         type            cyclic;
     }
