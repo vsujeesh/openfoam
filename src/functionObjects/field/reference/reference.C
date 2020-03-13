@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2018 OpenCFD Ltd.
+    Copyright (C) 2018-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -35,13 +35,7 @@ namespace Foam
 namespace functionObjects
 {
     defineTypeNameAndDebug(reference, 0);
-
-    addToRunTimeSelectionTable
-    (
-        functionObject,
-        reference,
-        dictionary
-    );
+    addToRunTimeSelectionTable(functionObject, reference, dictionary);
 }
 }
 
@@ -60,7 +54,6 @@ bool Foam::functionObjects::reference::calc()
 
     Log << endl;
 
-
     return returnReduce(processed, orOp<bool>());
 }
 
@@ -75,12 +68,12 @@ Foam::functionObjects::reference::reference
 )
 :
     fieldExpression(name, runTime, dict),
-    localDict_(dict),
-    position_(Zero),
     positionIsSet_(false),
     celli_(-1),
     interpolationScheme_("cell"),
-    scale_(1)
+    scale_(1),
+    localDict_(dict),
+    position_(Zero)
 {
     read(dict);
 
@@ -89,11 +82,7 @@ Foam::functionObjects::reference::reference
 }
 
 
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
-Foam::functionObjects::reference::~reference()
-{}
-
+// * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 bool Foam::functionObjects::reference::read(const dictionary& dict)
 {
@@ -127,7 +116,7 @@ bool Foam::functionObjects::reference::read(const dictionary& dict)
             }
 
             interpolationScheme_ =
-                dict.lookupOrDefault<word>("interpolationScheme", "cell");
+                dict.getOrDefault<word>("interpolationScheme", "cell");
         }
 
         Log << endl;

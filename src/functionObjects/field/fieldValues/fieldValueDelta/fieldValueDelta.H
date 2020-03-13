@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2012-2016 OpenFOAM Foundation
-    Copyright (C) 2015-2017 OpenCFD Ltd.
+    Copyright (C) 2015-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -31,20 +31,22 @@ Group
     grpFieldFunctionObjects
 
 Description
-    Provides an operation between two 'field value' function objects.
+    Computes a selected operation between two \c fieldValue function objects.
 
-    The operation is applied to all results of each fieldValue object.
+    The operation is applied to all results of each \c fieldValue object.
     Accordingly, each object must generate the same number and type of results.
 
 Usage
-    Example of function object specification:
+    Minimal example by using \c system/controlDict.functions:
     \verbatim
     fieldValueDelta1
     {
+        // Mandatory entries (unmodifiable)
         type            fieldValueDelta;
-        libs            ("libfieldFunctionObjects.so");
-        operation       subtract;
+        libs            (fieldFunctionObjects);
 
+        // Mandatory entries (runtime modifiable)
+        operation       subtract;
         region1
         {
             ...
@@ -53,16 +55,23 @@ Usage
         {
             ...
         }
+
+        // Optional (inherited) entries
+        ...
     }
     \endverbatim
 
-    Where the entries comprise:
+    where the entries mean:
     \table
-        Property     | Description             | Required    | Default value
-        type         | type name: fieldValueDelta   | yes    |
+      Property     | Description                        | Type | Req'd | Dflt
+      type         | Type name: fieldValueDelta         | word |  yes  | -
+      libs         | Library name: fieldFunctionObjects | word |  yes  | -
+      operation    | Operation type to apply to values  | word |  yes  | -
+      region1      | Region1 properties                 | dict |  yes  | -
+      region2      | Region2 properties                 | dict |  yes  | -
     \endtable
 
-    The \c operation is one of:
+    Options for the \c operation entry:
     \plaintable
        add           | add
        subtract      | subtract
@@ -71,11 +80,15 @@ Usage
        average       | average
     \endplaintable
 
+    The inherited entries are elaborated in:
+     - \link fieldValue.H \endlink
+
+    Usage by the \c postProcess utility is not available.
+
 See also
-    Foam::functionObject
-    Foam::functionObjects::fieldValue
-    Foam::functionObjects::regionFunctionObject
-    Foam::functionObjects::writeFile
+    - Foam::functionObject
+    - Foam::functionObjects::fieldValue
+    - ExtendedCodeGuide::functionObjects::field::fieldValueDelta
 
 SourceFiles
     fieldValueDelta.C
@@ -125,7 +138,7 @@ public:
 
 private:
 
-    // Private data
+    // Private Data
 
         //- Operation to apply to values
         operationType operation_;
@@ -176,9 +189,15 @@ public:
             const dictionary& dict
         );
 
+        //- No copy construct
+        fieldValueDelta(const fieldValueDelta&) = delete;
+
+        //- No copy assignment
+        void operator=(const fieldValueDelta&) = delete;
+
 
     //- Destructor
-    virtual ~fieldValueDelta();
+    virtual ~fieldValueDelta() = default;
 
 
     // Public Member Functions

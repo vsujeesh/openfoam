@@ -212,14 +212,19 @@ Foam::functionObjects::writeFile::writeFile
 bool Foam::functionObjects::writeFile::read(const dictionary& dict)
 {
     writePrecision_ =
-        dict.lookupOrDefault("writePrecision", IOstream::defaultPrecision());
+        dict.getCheckOrDefault
+        (
+            "writePrecision",
+            IOstream::defaultPrecision(),
+            labelMinMax::ge(0)
+        );
 
     // Only write on master
     writeToFile_ =
-        Pstream::master() && dict.lookupOrDefault("writeToFile", writeToFile_);
+        Pstream::master() && dict.getOrDefault("writeToFile", writeToFile_);
 
     // Use user time, e.g. CA deg in preference to seconds
-    useUserTime_ = dict.lookupOrDefault("useUserTime", true);
+    useUserTime_ = dict.getOrDefault("useUserTime", true);
 
     return true;
 }

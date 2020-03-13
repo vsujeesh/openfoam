@@ -90,12 +90,6 @@ Foam::functionObjects::heatTransferCoeff::heatTransferCoeff
 }
 
 
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
-Foam::functionObjects::heatTransferCoeff::~heatTransferCoeff()
-{}
-
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 bool Foam::functionObjects::heatTransferCoeff::read(const dictionary& dict)

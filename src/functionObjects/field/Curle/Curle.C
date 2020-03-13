@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2017 OpenCFD Ltd.
+    Copyright (C) 2017-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -39,13 +39,7 @@ namespace Foam
 namespace functionObjects
 {
     defineTypeNameAndDebug(Curle, 0);
-
-    addToRunTimeSelectionTable
-    (
-        functionObject,
-        Curle,
-        dictionary
-    );
+    addToRunTimeSelectionTable(functionObject, Curle, dictionary);
 }
 }
 
@@ -121,12 +115,6 @@ Foam::functionObjects::Curle::Curle
 }
 
 
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
-Foam::functionObjects::Curle::~Curle()
-{}
-
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 bool Foam::functionObjects::Curle::read(const dictionary& dict)
@@ -147,6 +135,13 @@ bool Foam::functionObjects::Curle::read(const dictionary& dict)
         // Read the reference speed of sound
         dict.readEntry("c0", c0_);
 
+        if (c0_.value() < VSMALL)
+        {
+            FatalErrorInFunction
+                << "Reference speed of sound = " << c0_
+                << " cannot be negative or zero."
+                << abort(FatalError);
+        }
 
         // Set the location of the effective point source to the area-average
         // of the patch face centres

@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2013-2016 OpenFOAM Foundation
-    Copyright (C) 2015-2019 OpenCFD Ltd.
+    Copyright (C) 2015-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -38,13 +38,7 @@ namespace Foam
 namespace functionObjects
 {
     defineTypeNameAndDebug(PecletNo, 0);
-
-    addToRunTimeSelectionTable
-    (
-        functionObject,
-        PecletNo,
-        dictionary
-    );
+    addToRunTimeSelectionTable(functionObject, PecletNo, dictionary);
 }
 }
 
@@ -143,16 +137,11 @@ Foam::functionObjects::PecletNo::PecletNo
 }
 
 
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
-Foam::functionObjects::PecletNo::~PecletNo()
-{}
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 bool Foam::functionObjects::PecletNo::read(const dictionary& dict)
 {
-    rhoName_ = dict.lookupOrDefault<word>("rho", "rho");
+    rhoName_ = dict.getOrDefault<word>("rho", "rho");
 
     return true;
 }

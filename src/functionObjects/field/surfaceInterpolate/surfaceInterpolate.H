@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2016 OpenFOAM Foundation
-    Copyright (C) 2016 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -33,38 +33,47 @@ Group
 Description
     Linearly interpolates volume fields to generate surface fields.
 
-    Fields are stored
-    - every time step the field is updated with new values
-    - at output it writes the fields
-
-    This functionObject can either be used
-    - to calculate a new field as a  post-processing step or
-    - since the fields are registered, used in another functionObject
+    \table
+      Operand        | Type                  | Location
+      input          | vol\<Type\>Field      | $FOAM_CASE/\<time\>/\<inpField\>
+      output file    | -                     | -
+      output field   | surface\<Type\>Field  | $FOAM_CASE/\<time\>/\<outField\>
+    \endtable
 
 Usage
-    Example of function object specification:
+    Minimal example by using \c system/controlDict.functions:
     \verbatim
     surfaceInterpolate1
     {
+        // Mandatory entries (unmodifiable)
         type        surfaceInterpolate;
-        libs        ("libfieldFunctionObjects.so");
+        libs        (fieldFunctionObjects);
+
+        // Mandatory entries (runtime modifiable)
+        fields      ((<inpField1> <outField1>) ... (<inpFieldN> <outFieldN>));
+
+        // Optional (inherited) entries
         ...
-        fields      ((p pNear)(U UNear));
     }
     \endverbatim
 
-    Where the entries comprise:
+    where the entries mean:
     \table
-        Property | Description               | Required    | Default value
-        type     | type name: nearWallFields | yes         |
-        fields   | list of fields with correspoding output field names | yes |
-        log      | Log to standard output    | no          | yes
+      Property     | Description                           | Type | Req'd | Dflt
+      type         | Type name: surfaceInterpolate         | word |  yes  | -
+      libs         | Library name: fieldFunctionObjects    | word |  yes  | -
+      fields       | Names of operand and output fields    | wordList | yes | -
     \endtable
 
+    The inherited entries are elaborated in:
+     - \link functionObject.H \endlink
+
+    Usage by the \c postProcess utility is not available.
 
 See also
-    Foam::functionObjects::fvMeshFunctionObject
-    Foam::functionObjects::timeControl
+    - Foam::functionObject
+    - Foam::functionObjects::fvMeshFunctionObject
+    - ExtendedCodeGuide::functionObjects::field::surfaceInterpolate
 
 SourceFiles
     surfaceInterpolate.C
@@ -92,7 +101,7 @@ namespace functionObjects
 {
 
 /*---------------------------------------------------------------------------*\
-                  Class surfaceInterpolate Declaration
+                    Class surfaceInterpolate Declaration
 \*---------------------------------------------------------------------------*/
 
 class surfaceInterpolate
@@ -101,30 +110,17 @@ class surfaceInterpolate
 {
 protected:
 
-    // Protected data
+    // Protected Data
 
         //- Fields to process
         List<Tuple2<word, word>> fieldSet_;
 
-        //- Switch to send output to Info as well as to file
-        Switch log_;
-
 
     // Protected Member Functions
 
+        //- Linearly interpolate volume fields to generate surface fields
         template<class Type>
         void interpolateFields();
-
-
-private:
-
-    // Private member functions
-
-        //- No copy construct
-        surfaceInterpolate(const surfaceInterpolate&) = delete;
-
-        //- No copy assignment
-        void operator=(const surfaceInterpolate&) = delete;
 
 
 public:
@@ -144,9 +140,15 @@ public:
             const dictionary& dict
         );
 
+        //- No copy construct
+        surfaceInterpolate(const surfaceInterpolate&) = delete;
+
+        //- No copy assignment
+        void operator=(const surfaceInterpolate&) = delete;
+
 
     //- Destructor
-    virtual ~surfaceInterpolate();
+    virtual ~surfaceInterpolate() = default;
 
 
     // Member Functions

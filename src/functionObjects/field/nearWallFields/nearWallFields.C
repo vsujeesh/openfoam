@@ -256,14 +256,6 @@ Foam::functionObjects::nearWallFields::nearWallFields
 }
 
 
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
-Foam::functionObjects::nearWallFields::~nearWallFields()
-{
-    DebugInFunction << endl;
-}
-
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 bool Foam::functionObjects::nearWallFields::read(const dictionary& dict)

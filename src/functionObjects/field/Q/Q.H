@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2013-2016 OpenFOAM Foundation
-    Copyright (C) 2016 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -31,41 +31,62 @@ Group
     grpFieldFunctionObjects
 
 Description
-    Calculates and outputs the second invariant of the velocity gradient tensor
-    [1/s^2].
+    Computes the second invariant of
+    the velocity gradient tensor \f$[s^{-2}]\f$.
 
     \f[
-        Q = 0.5(sqr(tr(\nabla U)) - tr(((\nabla U) \cdot (\nabla U))))
+        \vec Q = \frac{1}{2}
+        [ (tr (\nabla \vec U) )^2
+        - tr (\nabla \vec U \cdot \nabla \vec U) ]
     \f]
 
     where
     \vartable
-        U           | velocity [m/s]
+        \vec U       | velocity [m/s]
     \endvartable
 
+    \table
+      Operand        | Type           | Location
+      input          | volVectorField | $FOAM_CASE/<time>/<inpField>
+      output file    | -              | -
+      output field   | volScalarField | $FOAM_CASE/<time>/<outField>
+    \endtable
+
 Usage
-    Example of function object specification to calculate Q:
+    Minimal example by using \c system/controlDict.functions:
     \verbatim
     Q1
     {
+        // Mandatory entries (unmodifiable)
         type        Q;
-        libs        ("libfieldFunctionObjects.so");
+        libs        (fieldFunctionObjects);
+
+        // Optional (inherited) entries
         ...
     }
     \endverbatim
 
-    Where the entries comprise:
+    where the entries mean:
     \table
-        Property     | Description             | Required    | Default value
-        type         | type name: Q            | yes         |
-        U            | Name of velocity field  | no          | U
-        result       | Name of Q field         | no          | \<function name\>
-        log          | Log to standard output  | no          | yes
+      Property     | Description                        | Type | Req'd | Dflt
+      type         | Type name: Q                       | word |  yes  | -
+      libs         | Library name: fieldFunctionObjects | word |  yes  | -
     \endtable
 
+    The inherited entries are elaborated in:
+     - \link functionObject.H \endlink
+     - \link fieldExpression.H \endlink
+
+    Minimal example by using the \c postProcess utility:
+    \verbatim
+        postProcess -func Q
+    \endverbatim
+
 See also
-    Foam::functionObjects::fieldExpression
-    Foam::functionObjects::fvMeshFunctionObject
+    - Foam::functionObject
+    - Foam::functionObjects::fieldExpression
+    - Foam::functionObjects::fvMeshFunctionObject
+    - ExtendedCodeGuide::functionObjects::field::Q
 
 SourceFiles
     Q.C
@@ -114,9 +135,15 @@ public:
             const dictionary& dict
         );
 
+        //- No copy construct
+        Q(const Q&) = delete;
+
+        //- No copy assignment
+        void operator=(const Q&) = delete;
+
 
     //- Destructor
-    virtual ~Q();
+    virtual ~Q() = default;
 };
 
 

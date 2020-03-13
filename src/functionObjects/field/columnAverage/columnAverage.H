@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2018 OpenCFD Ltd.
+    Copyright (C) 2018-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -30,38 +30,59 @@ Group
     grpFieldFunctionObjects
 
 Description
-    Averages columns of cells for layered meshes.
+    Computes the arithmetic average of given quantities along columns of cells
+    in a given direction for structured-like layered meshes. It is, for example,
+    useful for channel-like cases where spanwise average of a field is desired.
+    However, the \c columnAverage function object does not operate on arbitrary
+    unstructured meshes.
 
     For each patch face, calculates the average value of all cells attached in
     the patch face normal direction, and then pushes the average value back
     to all cells in the column.
 
-    Useful for channel-like cases where we want to average fields in the
-    spanwise direction.
+    \table
+      Operand           | Type               | Location
+      input             | vol\<Type\>Field   | $FOAM_CASE/\<time\>/\<inpField\>
+      output file       | -                  | -
+      output field      | vol\<Type\>Field   | $FOAM_CASE/\<time\>/\<outField\>
+    \endtable
 
 Usage
-    Example of function object specification:
+    Minimal example by using \c system/controlDict.functions:
     \verbatim
     columnAverage1
     {
-        type        columnAverage;
-        libs        ("libfieldFunctionObjects.so");
+        // Mandatory entries (unmodifiable)
+        type            columnAverage;
+        libs            (fieldFunctionObjects);
+
+        // Mandatory entries (runtime modifiable)
+        patches         (<patch1> <patch2> ... <patchN>);
+        fields          (<field1> <field2> ... <fieldN>);
+
+        // Optional (inherited) entries
         ...
-        patches     (front side);
-        fields      (U p);
     }
     \endverbatim
 
-    Where the entries comprise:
+    where the entries mean:
     \table
-        Property     | Description               | Required    | Default value
-        type         | type name: fieldMinMax    | yes         |
-        patches      | list of patches to collapse onto | yes  |
-        fields       | list of fields to process | yes         |
+      Property     | Description                        | Type | Req'd | Dflt
+      type         | Type name: columnAverage           | word |  yes  | -
+      libs         | Library name: fieldFunctionObjects | word |  yes  | -
+      patches      | Names of patches to collapse onto  | word |  yes  | -
+      fields       | Names of the operand fields        | word |  yes  | -
     \endtable
 
+    The inherited entries are elaborated in:
+     - \link functionObject.H \endlink
+
+    Usage by the \c postProcess utility is not available.
+
 See also
-    Foam::functionObjects::fvMeshFunctionObject
+    - Foam::functionObject
+    - Foam::functionObjects::fvMeshFunctionObject
+    - ExtendedCodeGuide::functionObjects::field::columnAverage
 
 SourceFiles
     columnAverage.C
@@ -94,7 +115,7 @@ class columnAverage
 :
     public fvMeshFunctionObject
 {
-    // Private data
+    // Private Data
 
         //- Patches on which to collapse the fields
         labelHashSet patchSet_;
@@ -136,6 +157,12 @@ public:
             const Time& runTime,
             const dictionary&
         );
+
+        //- No copy construct
+        columnAverage(const columnAverage&) = delete;
+
+        //- No copy assignment
+        void operator=(const columnAverage&) = delete;
 
 
     //- Destructor

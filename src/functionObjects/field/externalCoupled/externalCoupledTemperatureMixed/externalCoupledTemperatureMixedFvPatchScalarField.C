@@ -122,7 +122,7 @@ externalCoupledTemperatureMixedFvPatchScalarField
     outTempType_(outputTemperatureType::WALL),
     refTempType_
     (
-        refTemperatureNames.lookupOrDefault
+        refTemperatureNames.getOrDefault
         (
             "htcRefTemperature",
             dict,

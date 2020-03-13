@@ -39,13 +39,7 @@ namespace Foam
 namespace functionObjects
 {
     defineTypeNameAndDebug(derivedFields, 0);
-
-    addToRunTimeSelectionTable
-    (
-        functionObject,
-        derivedFields,
-        dictionary
-    );
+    addToRunTimeSelectionTable(functionObject, derivedFields, dictionary);
 }
 }
 
@@ -60,7 +54,6 @@ Foam::functionObjects::derivedFields::knownNames
     { derivedType::MASS_FLUX , "rhoU" },
     { derivedType::TOTAL_PRESSURE , "pTotal" },
 });
-
 
 
 // * * * * * * * * * * * * * * * Local Functions * * * * * * * * * * * * * * //
@@ -199,7 +192,7 @@ bool Foam::functionObjects::derivedFields::read(const dictionary& dict)
 {
     fvMeshFunctionObject::read(dict),
 
-    rhoRef_ = dict.lookupOrDefault<scalar>("rhoRef", 1);
+    rhoRef_ = dict.getOrDefault<scalar>("rhoRef", 1);
 
     wordList derivedNames(dict.get<wordList>("derived"));
 

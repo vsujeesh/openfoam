@@ -37,7 +37,6 @@ namespace Foam
     namespace functionObjects
     {
         defineTypeNameAndDebug(regionSizeDistribution, 0);
-
         addToRunTimeSelectionTable
         (
             functionObject,
@@ -81,7 +80,7 @@ void Foam::functionObjects::regionSizeDistribution::writeAlphaFields
     const volScalarField& alpha
 ) const
 {
-    const scalar maxDropletVol = 1.0/6.0*pow(maxDiam_, 3);
+    const scalar maxDropletVol = 1.0/6.0*pow3(maxDiam_);
 
     // Split alpha field
     // ~~~~~~~~~~~~~~~~~
@@ -322,16 +321,10 @@ Foam::functionObjects::regionSizeDistribution::regionSizeDistribution
     writeFile(obr_, name),
     alphaName_(dict.get<word>("field")),
     patchNames_(dict.get<wordRes>("patches")),
-    isoPlanes_(dict.lookupOrDefault("isoPlanes", false))
+    isoPlanes_(dict.getOrDefault("isoPlanes", false))
 {
     read(dict);
 }
-
-
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
-Foam::functionObjects::regionSizeDistribution::~regionSizeDistribution()
-{}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
@@ -341,13 +334,13 @@ bool Foam::functionObjects::regionSizeDistribution::read(const dictionary& dict)
     fvMeshFunctionObject::read(dict);
     writeFile::read(dict);
 
+    dict.readEntry("nBins", nBins_);
     dict.readEntry("field", alphaName_);
-    dict.readEntry("patches", patchNames_);
     dict.readEntry("threshold", threshold_);
     dict.readEntry("maxDiameter", maxDiam_);
     minDiam_ = 0.0;
     dict.readIfPresent("minDiameter", minDiam_);
-    dict.readEntry("nBins", nBins_);
+    dict.readEntry("patches", patchNames_);
     dict.readEntry("fields", fields_);
 
     const word format(dict.get<word>("setFormat"));
@@ -372,7 +365,7 @@ bool Foam::functionObjects::regionSizeDistribution::read(const dictionary& dict)
     {
          dict.readEntry("origin", origin_);
          dict.readEntry("direction", direction_);
-         dict.readEntry("maxDiameter", maxDiameter_);
+         dict.readEntry("maxD", maxDiameter_);
          dict.readEntry("nDownstreamBins", nDownstreamBins_);
          dict.readEntry("maxDownstream", maxDownstream_);
          direction_.normalise();

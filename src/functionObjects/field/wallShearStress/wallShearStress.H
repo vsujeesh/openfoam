@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2013-2016 OpenFOAM Foundation
-    Copyright (C) 2015-2016 OpenCFD Ltd.
+    Copyright (C) 2015-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -31,49 +31,66 @@ Group
     grpForcesFunctionObjects
 
 Description
-    Calculates and write the shear-stress at wall patches as
-    the volVectorField field 'wallShearStress'.
+    Computes the wall-shear stress at selected wall patches.
 
-        \f[
-            Stress = R \dot n
-        \f]
+    \f[
+        \vec \tau = \vec R \cdot \vec n
+    \f]
 
     where
     \vartable
-        R       | stress tensor
-        n       | patch normal vector (into the domain)
+        \vec \tau   | Wall shear stress vector [m^2/s^2]
+        \vec R | Shear-stress symmetric tensor (retrieved from turbulence model)
+        \vec n | Patch normal vector (into the domain)
     \endvartable
 
-    The shear-stress symmetric tensor field is retrieved from the turbulence
-    model.  All wall patches are included by default; to restrict the
-    calculation to certain patches, use the optional 'patches' entry.
+    \table
+      Operand        | Type              | Location
+      input          | -                 | -
+      output file    | dat | $FOAM_CASE/postProcessing/\<FO\>/\<time\>/\<field\>
+      output field   | volVectorField (only boundaryField) <!--
+                 --> | $FOAM_CASE/\<time\>/\<outField\>
+    \endtable
 
 Usage
-    Example of function object specification:
+    Minimal example by using \c system/controlDict.functions:
     \verbatim
     wallShearStress1
     {
+        // Mandatory entries (unmodifiable)
         type        wallShearStress;
-        libs        ("libfieldFunctionObjects.so");
+        libs        (fieldFunctionObjects);
+
+        // Optional entries (runtime modifiable)
+        patches     (<patch1> ... <patchN>); // (wall1 "(wall2|wall3)");
+
+        // Optional (inherited) entries
         ...
-        patches     (".*Wall");
     }
     \endverbatim
 
-    Where the entries comprise:
+    where the entries mean:
     \table
-        Property | Description                | Required   | Default value
-        type     | type name: wallShearStress | yes        |
-        resultName | Name of wall shear stress field | no  | \<function name\>
-        patches  | list of patches to process | no         | all wall patches
-        log      | Log to standard output     | no         | yes
+      Property     | Description                           | Type | Req'd | Dflt
+      type         | Type name: wallShearStress            | word |  yes  | -
+      libs         | Library name: fieldFunctionObjects    | word |  yes  | -
+      patches    | Names of operand patches   | wordList | no | all wall patches
     \endtable
 
+    The inherited entries are elaborated in:
+     - \link functionObject.H \endlink
+     - \link writeFile.H \endlink
+
+    Minimal example by using the \c postProcess utility:
+    \verbatim
+        <solver> -postProcess -func wallShearStress
+    \endverbatim
+
 See also
-    Foam::functionObject
-    Foam::functionObjects::fvMeshFunctionObject
-    Foam::functionObjects::writeFile
-    Foam::functionObjects::timeControl
+    - Foam::functionObject
+    - Foam::functionObjects::fvMeshFunctionObject
+    - Foam::functionObjects::writeFile
+    - ExtendedCodeGuide::functionObjects::field::wallShearStress
 
 SourceFiles
     wallShearStress.C
@@ -104,10 +121,9 @@ class wallShearStress
     public fvMeshFunctionObject,
     public writeFile
 {
-
 protected:
 
-    // Protected data
+    // Protected Data
 
         //- Optional list of patches to process
         labelHashSet patchSet_;
@@ -126,17 +142,6 @@ protected:
         );
 
 
-private:
-
-    // Private member functions
-
-        //- No copy construct
-        wallShearStress(const wallShearStress&) = delete;
-
-        //- No copy assignment
-        void operator=(const wallShearStress&) = delete;
-
-
 public:
 
     //- Runtime type information
@@ -153,9 +158,15 @@ public:
             const dictionary&
         );
 
+        //- No copy construct
+        wallShearStress(const wallShearStress&) = delete;
+
+        //- No copy assignment
+        void operator=(const wallShearStress&) = delete;
+
 
     //- Destructor
-    virtual ~wallShearStress();
+    virtual ~wallShearStress() = default;
 
 
     // Member Functions
