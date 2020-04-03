@@ -88,7 +88,7 @@ public:
 
     // Member Functions
 
-        //- Map droplet cloud sources to surface
+        //- Map Boundary field to surface
         template<class Type>
         tmp<Field<Type>> mapToSurface
         (
@@ -96,6 +96,9 @@ public:
             GeometricField<Type, fvPatchField, volMesh>::Boundary& df
         ) const;
 
+        //- Map vol Field to surface Field
+        template<class Type>
+        tmp<Field<Type>> mapToSurface(const Field<Type>& f) const;
 
         //- Map patch internal field to surface
         template<class Type>
@@ -129,6 +132,8 @@ public:
             const GeometricField<Type, faPatchField, areaMesh>& af,
             Field<Type>& f
         ) const;
+
+
 };
 
 

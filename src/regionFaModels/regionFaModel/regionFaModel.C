@@ -2,8 +2,10 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
-    \\  /    A nd           | Copyright (C) 2019 OpenCFD Ltd.
+    \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
+-------------------------------------------------------------------------------
+    Copyright (C) 2019-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -38,6 +40,9 @@ namespace regionModels
     defineTypeNameAndDebug(regionFaModel, 0);
 }
 }
+
+const Foam::word
+Foam::regionModels::regionFaModel::regionFaModelName("regionFaModel");
 
 // * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * * //
 
@@ -98,6 +103,17 @@ Foam::regionModels::regionFaModel::regionFaModel
     bool readFields
 )
 :
+    IOdictionary
+    (
+        IOobject
+        (
+            IOobject::groupName(regionFaModelName, patch.name()),
+            patch.boundaryMesh().mesh().time().constant(),
+            patch.boundaryMesh().mesh().time(),
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        )
+    ),
     primaryMesh_(patch.boundaryMesh().mesh()),
     patch_(patch),
     time_(patch.boundaryMesh().mesh().time()),
@@ -164,7 +180,12 @@ void Foam::regionModels::regionFaModel::evolveRegion()
 
 
 void Foam::regionModels::regionFaModel::postEvolveRegion()
+{}
+
+
+Foam::scalar Foam::regionModels::regionFaModel::CourantNumber() const
 {
+     return 0.0;
 }
 
 

@@ -2,8 +2,10 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
-    \\  /    A nd           | Copyright (C) 2019 OpenCFD Ltd.
+    \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
+-------------------------------------------------------------------------------
+    Copyright (C) 2019-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -58,6 +60,8 @@ namespace regionModels
 \*---------------------------------------------------------------------------*/
 
 class regionFaModel
+:
+    public IOdictionary
 {
 
 private:
@@ -130,6 +134,9 @@ public:
     //- Runtime type information
     TypeName("regionFaModel");
 
+     //- Default name regionFaModel
+    static const word regionFaModelName;
+
 
     // Constructors
 
@@ -188,7 +195,7 @@ public:
 
                 //- Return the list of patch IDs on the primary region coupled
                 //  to this region
-                inline label patchID();
+                inline label patchID() const;
 
 
 
@@ -208,6 +215,9 @@ public:
 
             //- Post-evolve region
             virtual void postEvolveRegion();
+
+            //- Courant number of the region
+            virtual scalar CourantNumber() const;
 
 
         // I-O

@@ -2,8 +2,10 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
-    \\  /    A nd           | Copyright (C) 2019 OpenCFD Ltd.
+    \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
+-------------------------------------------------------------------------------
+    Copyright (C) 2019-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -107,10 +109,9 @@ Foam::regionModels::regionFaModel::solution() const
 }
 
 
-inline Foam::label Foam::regionModels::regionFaModel::patchID()
+inline Foam::label Foam::regionModels::regionFaModel::patchID() const
 {
     return patchID_;
 }
-
 
 // ************************************************************************* //
