@@ -5,10 +5,8 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2011-2018 OpenFOAM Foundation
     Copyright (C) 2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
-License
     This file is part of OpenFOAM.
 
     OpenFOAM is free software: you can redistribute it and/or modify it
@@ -25,40 +23,38 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Class
-    Foam::atmBoundaryLayerInletEpsilonFvPatchScalarField
+    Foam::atmBoundaryLayerInletOmegaFvPatchScalarField
 
 Group
     grpRASBoundaryConditions grpInletBoundaryConditions
 
 Description
     This boundary condition provides a log-law type ground-normal inflow
-    boundary condition for turbulent kinetic energy dissipation rate, i.e.
-    \c epsilon, for homogeneous, two-dimensional, dry-air, equilibrium and
-    neutral atmospheric boundary layer modelling.
+    boundary condition for specific dissipation rate, i.e. \c omega,
+    for homogeneous, two-dimensional, dry-air, equilibrium and neutral
+    atmospheric boundary layer modelling.
 
-    The ground-normal \c epsilon profile expression:
+    The ground-normal \c omega profile expression:
 
         \f[
-            \epsilon = \frac{(u^*)^3}{\kappa (z - d + z_0)}
-            \sqrt{C_1 \ln \left( \frac{z - d + z_0}{z_0} \right) + C_2}
+            \omega = \frac{u^*}{\kappa \sqrt{C_\mu}} \frac{1}{z - d + z_0}
         \f]
 
     where
     \vartable
-      \epsilon | Ground-normal TKE dissipation rate profile     [m^2/s^3]
-      u^*      | Friction velocity                              [m/s]
-      \kappa   | von Kármán constant                            [-]
-      z        | Ground-normal coordinate component             [m]
-      z_0      | Aerodynamic roughness length                   [m]
-      d        | Ground-normal displacement height              [m]
-      C_1      | Curve-fitting coefficient for \c YGCJ profiles [-]
-      C_2      | Curve-fitting coefficient for \c YGCJ profiles [-]
- \endvartable
+      \omega | Ground-normal specific dissipation rate profile [m^2/s^3]
+      u^*    | Friction velocity                               [m/s]
+      \kappa | von Kármán constant                             [-]
+      C_\mu  | Empirical model constant                        [-]
+      z      | Ground-normal coordinate component              [m]
+      d      | Ground-normal displacement height               [m]
+      z_0    | Aerodynamic roughness length                    [m]
+    \endvartable
 
 Usage
     \heading Required fields
     \plaintable
-        epsilon   | Turbulent kinetic energy dissipation rate   [m^2/s^3]
+        omega   | Specific dissipation rate                    [1/s]
     \endplaintable
 
     Example of the boundary condition specification:
@@ -66,7 +62,7 @@ Usage
     inlet
     {
         // Mandatory entries (unmodifiable)
-        type            atmBoundaryLayerInletEpsilon;
+        type            atmBoundaryLayerInletOmega;
 
         // Mandatory (inherited) entries (unmodifiable)
         flowDir         (1 0 0);
@@ -95,18 +91,18 @@ Usage
 
 See also
     - Foam::atmBoundaryLayer
+    - Foam::atmBoundaryLayer::atmBoundaryLayerInletVelocityFvPatchVelocityField
+    - Foam::atmBoundaryLayer::atmBoundaryLayerInletEpsilonFvPatchScalarField
     - Foam::atmBoundaryLayer::atmBoundaryLayerInletKFvPatchScalarField
-    - Foam::atmBoundaryLayer::atmBoundaryLayerInletOmegaFvPatchScalarField
-    - Foam::atmBoundaryLayer::atmBoundaryLayerInletVelocityFvPatchVectorField
-    - ExtendedCodeGuide::atmBoundaryLayer::atmBoundaryLayerInletEpsilon
+    - ExtendedCodeGuide::atmBoundaryLayer::atmBoundaryLayerInletOmega
 
 SourceFiles
-    atmBoundaryLayerInletEpsilonFvPatchScalarField.C
+    atmBoundaryLayerInletOmegaFvPatchScalarField.C
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef atmBoundaryLayerInletEpsilonFvPatchScalarField_H
-#define atmBoundaryLayerInletEpsilonFvPatchScalarField_H
+#ifndef atmBoundaryLayerInletOmegaFvPatchScalarField_H
+#define atmBoundaryLayerInletOmegaFvPatchScalarField_H
 
 #include "fvPatchFields.H"
 #include "inletOutletFvPatchFields.H"
@@ -118,10 +114,10 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-        Class atmBoundaryLayerInletEpsilonFvPatchScalarField Declaration
+        Class atmBoundaryLayerInletOmegaFvPatchScalarField Declaration
 \*---------------------------------------------------------------------------*/
 
-class atmBoundaryLayerInletEpsilonFvPatchScalarField
+class atmBoundaryLayerInletOmegaFvPatchScalarField
 :
     public inletOutletFvPatchScalarField,
     public atmBoundaryLayer
@@ -130,20 +126,20 @@ class atmBoundaryLayerInletEpsilonFvPatchScalarField
 public:
 
     //- Runtime type information
-    TypeName("atmBoundaryLayerInletEpsilon");
+    TypeName("atmBoundaryLayerInletOmega");
 
 
     // Constructors
 
         //- Construct from patch and internal field
-        atmBoundaryLayerInletEpsilonFvPatchScalarField
+        atmBoundaryLayerInletOmegaFvPatchScalarField
         (
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&
         );
 
         //- Construct from patch, internal field and dictionary
-        atmBoundaryLayerInletEpsilonFvPatchScalarField
+        atmBoundaryLayerInletOmegaFvPatchScalarField
         (
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
@@ -151,10 +147,10 @@ public:
         );
 
         //- Construct by mapping given
-        //- atmBoundaryLayerInletEpsilonFvPatchScalarField onto a new patch
-        atmBoundaryLayerInletEpsilonFvPatchScalarField
+        //- atmBoundaryLayerInletOmegaFvPatchScalarField onto a new patch
+        atmBoundaryLayerInletOmegaFvPatchScalarField
         (
-            const atmBoundaryLayerInletEpsilonFvPatchScalarField&,
+            const atmBoundaryLayerInletOmegaFvPatchScalarField&,
             const fvPatch&,
             const DimensionedField<scalar, volMesh>&,
             const fvPatchFieldMapper&
@@ -165,14 +161,14 @@ public:
         {
             return tmp<fvPatchScalarField>
             (
-                new atmBoundaryLayerInletEpsilonFvPatchScalarField(*this)
+                new atmBoundaryLayerInletOmegaFvPatchScalarField(*this)
             );
         }
 
         //- Construct as copy setting internal field reference
-        atmBoundaryLayerInletEpsilonFvPatchScalarField
+        atmBoundaryLayerInletOmegaFvPatchScalarField
         (
-            const atmBoundaryLayerInletEpsilonFvPatchScalarField&,
+            const atmBoundaryLayerInletOmegaFvPatchScalarField&,
             const DimensionedField<scalar, volMesh>&
         );
 
@@ -184,7 +180,7 @@ public:
         {
             return tmp<fvPatchScalarField>
             (
-                new atmBoundaryLayerInletEpsilonFvPatchScalarField(*this, iF)
+                new atmBoundaryLayerInletOmegaFvPatchScalarField(*this, iF)
             );
         }
 
@@ -193,6 +189,7 @@ public:
 
         //- Update the coefficients associated with the patch field
         virtual void updateCoeffs();
+
 
         // Mapping functions
 

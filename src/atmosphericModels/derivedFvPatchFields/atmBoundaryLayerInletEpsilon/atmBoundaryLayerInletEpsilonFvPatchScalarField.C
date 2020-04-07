@@ -6,6 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2018 OpenFOAM Foundation
+    Copyright (C) 2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -27,6 +28,7 @@ License
 
 #include "atmBoundaryLayerInletEpsilonFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
+#include "turbulenceModel.H"
 #include "fvPatchFieldMapper.H"
 #include "volFields.H"
 #include "surfaceFields.H"
@@ -61,19 +63,20 @@ atmBoundaryLayerInletEpsilonFvPatchScalarField
     inletOutletFvPatchScalarField(p, iF),
     atmBoundaryLayer(iF.time(), p.patch(), dict)
 {
-    phiName_ = dict.lookupOrDefault<word>("phi", "phi");
+    phiName_ = dict.getOrDefault<word>("phi", "phi");
 
     refValue() = epsilon(patch().Cf());
     refGrad() = 0;
     valueFraction() = 1;
 
-    if (dict.found("value"))
+    if (!initABL_)
     {
         scalarField::operator=(scalarField("value", dict, p.size()));
     }
     else
     {
         scalarField::operator=(refValue());
+        initABL_ = false;
     }
 }
 
@@ -147,8 +150,8 @@ void atmBoundaryLayerInletEpsilonFvPatchScalarField::rmap
 void atmBoundaryLayerInletEpsilonFvPatchScalarField::write(Ostream& os) const
 {
     fvPatchScalarField::write(os);
-    atmBoundaryLayer::write(os);
     os.writeEntryIfDifferent<word>("phi", "phi", phiName_);
+    atmBoundaryLayer::write(os);
     writeEntry("value", os);
 }
 

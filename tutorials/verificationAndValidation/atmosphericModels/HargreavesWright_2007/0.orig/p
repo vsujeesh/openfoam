@@ -5,12 +5,47 @@
 |   \\  /    A nd           | Website:  www.openfoam.com                      |
 |    \\/     M anipulation  |                                                 |
 \*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    object      p;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-uRef                 10.0;
-zRef                 20;
-zDir                 (0 0 1);
-flowDir              (1 0 0);
-z0                   uniform 0.1;
-d                    uniform 0.0;
+dimensions      [0 2 -2 0 0 0 0];
+
+internalField   uniform 0;
+
+boundaryField
+{
+    inlet
+    {
+        type            zeroGradient;
+    }
+
+    ground
+    {
+        type            zeroGradient;
+    }
+
+    top
+    {
+        type            zeroGradient;
+    }
+
+    sides
+    {
+        type            symmetry;
+    }
+
+    outlet
+    {
+        type            uniformFixedValue;
+        uniformValue    constant 0;
+    }
+}
+
 
 // ************************************************************************* //

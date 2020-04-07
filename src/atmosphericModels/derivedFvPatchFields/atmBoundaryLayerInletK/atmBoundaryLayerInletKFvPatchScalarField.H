@@ -6,6 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2014-2018 OpenFOAM Foundation
+    Copyright (C) 2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -30,28 +31,71 @@ Group
     grpRASBoundaryConditions grpInletBoundaryConditions
 
 Description
-    This boundary condition specifies an inlet value for the turbulence
-    kinetic energy, \f$k\f$, appropriate for atmospheric boundary layers.
+    This boundary condition provides a log-law type ground-normal inflow
+    boundary condition for turbulent kinetic energy, i.e. \c k,
+    for homogeneous, two-dimensional, dry-air, equilibrium and neutral
+    atmospheric boundary layer modelling.
 
-    See Foam::atmBoundaryLayer for details.
+    The ground-normal \c k profile expression:
+
+        \f[
+            k = \frac{(u^*)^2}{\sqrt{C_\mu}}
+            \sqrt{C_1 \ln \left( \frac{z - d + z_0}{z_0} \right) + C_2}
+        \f]
+
+    where
+    \vartable
+      k        | Ground-normal turbulent kinetic energy profile [m^2/s^3]
+      u^*      | Friction velocity                              [m/s]
+      C_\mu    | Empirical model constant                       [-]
+      C_1      | Curve-fitting coefficient for \c YGCJ profiles [-]
+      C_2      | Curve-fitting coefficient for \c YGCJ profiles [-]
+    \endvartable
+
+Usage
+    \heading Required fields
+    \plaintable
+        k    | Turbulent kinetic energy                         [m^2/s^2]
+    \endplaintable
 
     Example of the boundary condition specification:
     \verbatim
-    ground
+    inlet
     {
+        // Mandatory entries (unmodifiable)
         type            atmBoundaryLayerInletK;
-        z               (0 0 1);
-        Uref            10.0;
-        Zref            20.0;
+
+        // Mandatory (inherited) entries (unmodifiable)
+        uRef            10.0;
+        zRef            0.0;
         z0              uniform 0.1;
-        zGround         uniform 0.0;
+        d               uniform 0.0;
+        flowDir         (1 0 0);    // not used
+        z               (0 0 1);    // not used
+
+        // Optional (inherited) entries (unmodifiable)
+        kappa           0.41;
+        Cmu             0.09;
+        initABL         true;
+        phi             phi;
+        C1              0.0;
+        C2              1.0;
+
+        // Conditional mandatory (inherited) entries (runtime modifiable)
+        value           uniform 0;    // when initABL=false
     }
     \endverbatim
 
+    The inherited entries are elaborated in:
+     - \link atmBoundaryLayer.H \endlink
+     - \link inletOutletFvPatchField.H \endlink
+
 See also
-    Foam::atmBoundaryLayer,
-    Foam::atmBoundaryLayerInletVelocityFvPatchVectorField,
-    Foam::atmBoundaryLayerInletEpsilonFvPatchScalarField
+    - Foam::atmBoundaryLayer
+    - Foam::atmBoundaryLayer::atmBoundaryLayerInletVelocityFvPatchVectorField
+    - Foam::atmBoundaryLayer::atmBoundaryLayerInletEpsilonFvPatchScalarField
+    - Foam::atmBoundaryLayer::atmBoundaryLayerInletOmegaFvPatchScalarField
+    - ExtendedCodeGuide::atmBoundaryLayer::atmBoundaryLayerInletK
 
 SourceFiles
     atmBoundaryLayerInletKFvPatchScalarField.C
@@ -104,7 +148,7 @@ public:
         );
 
         //- Construct by mapping given
-        //  atmBoundaryLayerInletKFvPatchScalarField onto a new patch
+        //- atmBoundaryLayerInletKFvPatchScalarField onto a new patch
         atmBoundaryLayerInletKFvPatchScalarField
         (
             const atmBoundaryLayerInletKFvPatchScalarField&,
@@ -142,7 +186,7 @@ public:
         }
 
 
-    // Member functions
+    // Member Functions
 
         //- Update the coefficients associated with the patch field
         virtual void updateCoeffs();
