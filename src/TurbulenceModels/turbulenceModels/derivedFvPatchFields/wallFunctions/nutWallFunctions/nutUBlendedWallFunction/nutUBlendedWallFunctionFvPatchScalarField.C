@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2016-2019 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -87,31 +87,28 @@ Foam::nutUBlendedWallFunctionFvPatchScalarField::calcUTau
     Up -= n*(n & Up);
     const scalarField magUp(mag(Up));
 
-    tmp<scalarField> tuTaup(new scalarField(patch().size(), Zero));
-    scalarField& uTaup = tuTaup.ref();
-
     const scalarField& nutw = *this;
+
+    tmp<scalarField> tuTaup = Foam::sqrt((nutw + nuw)*magGradU);
+    scalarField& uTaup = tuTaup.ref();
 
     forAll(uTaup, facei)
     {
-        scalar ut = sqrt((nutw[facei] + nuw[facei])*magGradU[facei]);
-        if (mag(ut) > ROOTVSMALL)
+        if (mag(uTaup[facei]) > ROOTVSMALL)
         {
             scalar error = GREAT;
-            label iter = 0;
-            while (iter++ < 10 && error > 0.001)
+            for (label iter = 0; iter < 10 && error > 0.001; ++iter)
             {
-                const scalar yPlus = y[facei]*ut/nuw[facei];
+                const scalar yPlus = y[facei]*uTaup[facei]/nuw[facei];
                 const scalar uTauVis = magUp[facei]/yPlus;
                 const scalar uTauLog = kappa_*magUp[facei]/log(E_*yPlus);
 
                 const scalar utNew =
                     pow(pow(uTauVis, n_) + pow(uTauLog, n_), 1.0/n_);
-                error = mag(ut - utNew)/(ut + ROOTVSMALL);
-                ut = 0.5*(ut + utNew);
+                error = mag(uTaup[facei] - utNew)/(uTaup[facei] + ROOTVSMALL);
+                uTaup[facei] = 0.5*(uTaup[facei] + utNew);
             }
         }
-        uTaup[facei] = ut;
     }
 
     return tuTaup;
@@ -155,7 +152,7 @@ nutUBlendedWallFunctionFvPatchScalarField
 )
 :
     nutWallFunctionFvPatchScalarField(p, iF, dict),
-    n_(dict.lookupOrDefault<scalar>("n", 4))
+    n_(dict.getCheckOrDefault<scalar>("n", 4, scalarMinMax::ge(SMALL)))
 {}
 
 
@@ -214,8 +211,8 @@ void Foam::nutUBlendedWallFunctionFvPatchScalarField::write
 {
     fvPatchField<scalar>::write(os);
     writeLocalEntries(os);
-    writeEntry("value", os);
     os.writeEntry("n", n_);
+    writeEntry("value", os);
 }
 
 

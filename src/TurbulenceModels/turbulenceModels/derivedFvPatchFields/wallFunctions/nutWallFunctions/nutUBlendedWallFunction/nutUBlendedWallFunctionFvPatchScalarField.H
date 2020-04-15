@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2016-2019 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -32,7 +32,7 @@ Group
 Description
     This boundary condition provides a wall constraint on the turbulent
     kinematic viscosity, i.e. \c nut, when using wall functions based on
-    a blending of laminar sub-layer and log region contributions.
+    a blending of viscous and inertial sub-layer contributions.
 
         \f[
             u_\tau = (u_{\tau,v}^n + u_{\tau,l}^n)^{1/n}
@@ -41,8 +41,9 @@ Description
     where
     \vartable
         u_\tau     | friction velocity
-        u_{\tau,v} | friction velocity in the viscous region
-        u_{\tau,l} | friction velocity in the log region
+        u_{\tau,v} | friction velocity in the viscous sublayer
+        u_{\tau,l} | friction velocity in the inertial sublayer
+        n          | blending factor
     \endvartable
 
     Reference:
@@ -55,13 +56,6 @@ Description
     \endverbatim
 
 Usage
-    \table
-        Property     | Description                 | Required  | Default value
-        Cmu          | Model coefficient           | no        | 0.09
-        kappa        | Von Karman constant         | no        | 0.41
-        E            | Model coefficient           | no        | 9.8
-    \endtable
-
     Example of the boundary condition specification:
     \verbatim
     <patchName>
@@ -70,8 +64,21 @@ Usage
         type            nutUBlendedWallFunction;
 
         // Optional entries
-     }
+        n               4.0;
+
+        // Optional (inherited) entries
+        ...
+    }
     \endverbatim
+
+    where the entries mean:
+    \table
+        Property   | Description              | Type   | Req'rd  | Dflt
+        n          | Blending factor          | scalar | no      | 4.0
+    \endtable
+
+    The inherited entries are elaborated in:
+     - \link nutWallFunctionFvPatchScalarField.H \endlink
 
 Note
     The full 'automatic wall treatment' description also requires use of the
@@ -112,7 +119,7 @@ protected:
 
     // Protected Data
 
-        //- Model coefficient; default = 4
+        //- Blending factor
         scalar n_;
 
 
