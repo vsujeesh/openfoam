@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2017 OpenFOAM Foundation
-    Copyright (C) 2016-2019 OpenCFD Ltd.
+    Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -559,7 +559,11 @@ void Foam::KinematicCloud<CloudType>::setParcelThermoProperties
     const scalar lagrangianDt
 )
 {
-    parcel.rho() = constProps_.rho0();
+    // If rho0 is given in the const properties
+    if (constProps_.rho0() != -1)
+    {
+        parcel.rho() = constProps_.rho0();
+    }
 }
 
 
@@ -577,6 +581,14 @@ void Foam::KinematicCloud<CloudType>::checkParcelProperties
     if (parcel.typeId() == -1)
     {
         parcel.typeId() = constProps_.parcelTypeId();
+    }
+
+    if (parcel.rho() == -1)
+    {
+        FatalErrorInFunction
+            << "The kinematic cloud needs rho0 in the constantProperties " << nl
+            << " dictionary. " << nl
+            << abort(FatalError);
     }
 }
 

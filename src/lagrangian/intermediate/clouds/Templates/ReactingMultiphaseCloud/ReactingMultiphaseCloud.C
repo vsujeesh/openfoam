@@ -6,6 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2017 OpenFOAM Foundation
+    Copyright (C) 2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -173,6 +174,21 @@ void Foam::ReactingMultiphaseCloud<CloudType>::setParcelThermoProperties
     parcel.YGas() = this->composition().Y0(idGas);
     parcel.YLiquid() = this->composition().Y0(idLiquid);
     parcel.YSolid() = this->composition().Y0(idSolid);
+
+
+    // If rho0 was given in constProp use it. If not use the composition
+    // to set tho
+    if (constProps_.rho0() == -1)
+    {
+        const scalarField& Ygas = this->composition().Y0(idGas);
+        const scalarField& Yliq = this->composition().Y0(idLiquid);
+        const scalarField& Ysol = this->composition().Y0(idSolid);
+        const scalar p0 =
+            this->composition().thermo().thermo().p()[parcel.cell()];
+        const scalar T0 = constProps_.T0();
+
+        parcel.rho() = this->composition().rho(Ygas, Yliq, Ysol, T0, p0);
+    }
 }
 
 

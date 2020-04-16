@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2018-2019 OpenCFD Ltd.
+    Copyright (C) 2018-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -191,16 +191,61 @@ void Foam::ReactingHeterogeneousParcel<ParcelType>::calc
     (void)this->updateMassFraction(mass0, dMassSolid, this->Y_);
 
 
-    // Update particle density or diameter
-    if (cloud.constProps().constantVolume())
+    if
+    (
+        cloud.constProps().volUpdateType()
+     == constantProperties::volumeUpadteType::mUndefined
+    )
     {
-        this->rho_ = mass1/this->volume();
+        if (cloud.constProps().constantVolume())
+        {
+            this->rho_ = mass1/this->volume();
+        }
+        else
+        {
+            this->d_ = cbrt(mass1/this->rho_*6.0/pi);
+        }
     }
     else
     {
-        this->d_ = cbrt(mass1/this->rho_*6.0/pi);
-    }
+        switch (cloud.constProps().volUpdateType())
+        {
+            case constantProperties::volumeUpadteType::mConstRho :
+            {
+                this->d_ = cbrt(mass1/this->rho_*6.0/pi);
+                break;
+            }
+            case constantProperties::volumeUpadteType::mConstVol :
+            {
+                this->rho_ = mass1/this->volume();
+                break;
+            }
+            case constantProperties::volumeUpadteType::mUpdateRhoAndVol :
+            {
+                const label idG = composition.idGas();
+                const label idL = composition.idLiquid();
+                const label idS = composition.idSolid();
 
+                scalar deltaVol =
+                    this->updatedDeltaVolume
+                    (
+                        cloud,
+                        scalarField(0),
+                        scalarField(0),
+                        dMassSolid,
+                        idG,
+                        idL,
+                        idS,
+                        pc,
+                        T0
+                    );
+
+                this->rho_ = mass1/(this->volume() + deltaVol);
+                this->d_ = cbrt(mass1/this->rho_*6.0/pi);
+                break;
+            }
+        }
+    }
     // Correct surface values due to emitted species
     this->correctSurfaceValues(cloud, td, Ts, Cs, rhos, mus, Prs, kappas);
     Res = this->Re(rhos, U0, td.Uc(), this->d_, mus);
