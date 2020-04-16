@@ -247,7 +247,6 @@ void Foam::LiquidEvapFuchsKnudsen<CloudType>::calculate
     // water concentration at surface
     const scalar Rliq = RR/W;
     const scalar YeSurf = max(gamma*Ke*pSat/(Rliq*T*rhog), 0);
-DebugVar(YeSurf)
 
     const scalar Kn = 2*gamma_/d;
     const scalar Cm =
