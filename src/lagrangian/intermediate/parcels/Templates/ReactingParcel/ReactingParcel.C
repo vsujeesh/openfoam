@@ -433,7 +433,6 @@ void Foam::ReactingParcel<ParcelType>::calc
     const vector& U0 = this->U_;
     const scalar T0 = this->T_;
     const scalar mass0 = this->mass();
-    const scalar volume0 = this->volume();
     const scalar rho0 = this->rho_;
 
 
@@ -500,6 +499,7 @@ void Foam::ReactingParcel<ParcelType>::calc
         0,
         1.0,
         Y_,
+        scalarField(0),
         dMassPC,
         Sh,
         Ne,

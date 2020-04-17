@@ -229,7 +229,7 @@ void Foam::LiquidEvapFuchsKnudsen<CloudType>::calculate
 
     scalar sigma = liquids_.properties()[lid].sigma(pc, Ts);
 
-    // Kelving effect
+    // Kelvin effect
     const scalar Ke = exp(4*sigma*W/(RR*rho*d*T));
 
     // vapour diffusivity [m2/s]

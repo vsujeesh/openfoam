@@ -80,6 +80,30 @@ Foam::scalar Foam::ReactingHeterogeneousParcel<ParcelType>::LEff
 
 // * * * * * * * * * * *  Protected Member Functions * * * * * * * * * * * * //
 
+
+template<class ParcelType>
+template<class TrackCloudType>
+Foam::scalar Foam::ReactingHeterogeneousParcel<ParcelType>::updatedDeltaVolume
+(
+    TrackCloudType& cloud,
+    const scalarField& dMass,
+    const scalar p,
+    const scalar T
+)
+{
+    const auto& composition = cloud.composition();
+
+    scalarField dVolSolid(dMass.size(), Zero);
+    forAll(dVolSolid, i)
+    {
+        dVolSolid[i] =
+            dMass[i]/composition.solids().properties()[i].rho();
+    }
+
+    return sum(dVolSolid);
+}
+
+
 template<class ParcelType>
 template<class TrackCloudType>
 void Foam::ReactingHeterogeneousParcel<ParcelType>::calc
@@ -222,20 +246,11 @@ void Foam::ReactingHeterogeneousParcel<ParcelType>::calc
             }
             case constantProperties::volumeUpadteType::mUpdateRhoAndVol :
             {
-                const label idG = composition.idGas();
-                const label idL = composition.idLiquid();
-                const label idS = composition.idSolid();
-
                 scalar deltaVol =
-                    this->updatedDeltaVolume
+                    updatedDeltaVolume
                     (
                         cloud,
-                        scalarField(0),
-                        scalarField(0),
                         dMassSolid,
-                        idG,
-                        idL,
-                        idS,
                         pc,
                         T0
                     );

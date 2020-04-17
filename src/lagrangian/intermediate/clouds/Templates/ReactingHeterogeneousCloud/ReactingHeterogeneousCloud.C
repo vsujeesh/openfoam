@@ -150,8 +150,8 @@ void Foam::ReactingHeterogeneousCloud<CloudType>::setParcelThermoProperties
         const scalarField& Ysol = this->composition().Y0(idSolid);
 
         const scalar p0 =
-            this->composition().thermo.thermo().p()[parcel.cell()];
-        const scalar T0 = this->T0();
+            this->composition().thermo().thermo().p()[parcel.cell()];
+        const scalar T0 = this->constProps_.T0();
 
         parcel.rho() = this->composition().rho(Ygas, Yliq, Ysol, T0, p0);
     }
