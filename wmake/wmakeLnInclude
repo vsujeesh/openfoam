@@ -7,7 +7,7 @@
 #    \\/     M anipulation  |
 #------------------------------------------------------------------------------
 #     Copyright (C) 2011-2016 OpenFOAM Foundation
-#     Copyright (C) 2019 OpenCFD Ltd.
+#     Copyright (C) 2019-2020 OpenCFD Ltd.
 #------------------------------------------------------------------------------
 # License
 #     This file is part of OpenFOAM.
@@ -26,7 +26,7 @@
 #     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Script
-#     wmakeLnInclude
+#     wmake/wmakeLnInclude
 #
 # Usage
 #     wmakeLnInclude [OPTION] [-pwd | <dir>]
@@ -38,15 +38,14 @@
 #     C++ files:    .C .cc .cpp .cxx .H .hh .hpp .hxx
 #
 #------------------------------------------------------------------------------
-Script="${0##*/}"           # Use 'Script' for error messages in wmakeFunctions
-. "${0%/*}/scripts/wmakeFunctions"              # Source wmake functions
+Script="${0##*/}"                   # Need 'Script' for wmakeFunctions messages
+scriptsDir="${0%/*}"/scripts        # wmake/scripts directory
+. "$scriptsDir"/wmakeFunctions      # Source wmake functions
 
-usage() {
-    exec 1>&2
-    while [ "$#" -ge 1 ]; do echo "$1"; shift; done
+printHelp() {
     cat<<USAGE
 
-Usage: $Script [OPTION] [-pwd | dir]
+Usage: ${0##*/} [OPTION] [-pwd | dir]
 
 options:
   -u | -update      Update
@@ -57,10 +56,24 @@ options:
 Link all the source files in the <dir> into <dir>/lnInclude
 
 Note
-    The '-u' option forces an update when the lnInclude directory already exists
+    The '-update' forces an update when the lnInclude directory already exists
     and changes the default linking from 'ln -s' to 'ln -sf'.
 
 USAGE
+    exit 0 # clean exit
+}
+
+
+# Report error and exit
+die()
+{
+    exec 1>&2
+    echo
+    echo "Error encountered:"
+    while [ "$#" -ge 1 ]; do echo "    $1"; shift; done
+    echo
+    echo "See '${0##*/} -help' for usage"
+    echo
     exit 1
 }
 
@@ -72,26 +85,26 @@ USAGE
 # Option for 'ln'
 optLink="-s"
 
-unset update optQuiet optFindRootDir
+unset optUpdate optQuiet optPwd
 
 while [ "$#" -gt 0 ]
 do
     case "$1" in
-        -h | -help*)   # Provide immediate help
-            usage
+        -h | -help*)
+            printHelp
             ;;
         -u | -update)
-            update=true
+            optUpdate=true
             optLink="-sf"
             ;;
         -s | -silent)
             optQuiet=true
             ;;
         -pwd)
-            optFindRootDir=true
+            optPwd=true
             ;;
         -*)
-            usage "unknown option: '$1'"
+            die "unknown option: '$1'"
             ;;
         *)
             break
@@ -100,16 +113,16 @@ do
     shift
 done
 
-[ "$optFindRootDir" = true ] || [ "$#" -eq 1 ] || \
-    usage "Error: incorrect number of arguments"
+[ "$optPwd" = true ] || [ "$#" -eq 1 ] || \
+    die "incorrect number of arguments"
 
 #------------------------------------------------------------------------------
 
 unset dir
 baseDir="$1"
 
-# With -root, go on discovery
-if [ "$optFindRootDir" = true ]
+# With -pwd, go on discovery
+if [ "$optPwd" = true ]
 then
     if [ -n "$baseDir" ]
     then
@@ -121,6 +134,7 @@ then
         then
             dir="${dir%/*}"
             : "${dir:=.}"
+            [ "$dir" != "$baseDir" ] || dir="."
         else
             echo "$Script error: not a file or directory" 1>&2
             exit 1
@@ -163,7 +177,7 @@ incDir="$baseDir/lnInclude"
 
 if [ -d "$incDir" ]
 then
-    [ "$update" = true ] || exit 0
+    [ "$optUpdate" = true ] || exit 0
 else
     mkdir "$incDir"
 fi
@@ -185,6 +199,8 @@ echo "    ln: $incDir" 1>&2
 
 case "$WM_ARCH" in
 (darwin*)
+    # -exec rm (not -delete) to remove names with '/' in their name
+    # with \+ instead of \; to pack into a single command
     find -L . -type l -exec rm -- {} \+
     ;;
 (*)

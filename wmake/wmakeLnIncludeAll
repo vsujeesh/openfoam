@@ -7,7 +7,7 @@
 #    \\/     M anipulation  |
 #------------------------------------------------------------------------------
 #     Copyright (C) 2011-2016 OpenFOAM Foundation
-#     Copyright (C) 2018 OpenCFD Ltd.
+#     Copyright (C) 2018-2020 OpenCFD Ltd.
 #------------------------------------------------------------------------------
 # License
 #     This file is part of OpenFOAM.
@@ -26,19 +26,19 @@
 #     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Script
-#     wmakeLnIncludeAll
+#     wmake/wmakeLnIncludeAll
 #
 # Usage
 #     wmakeLnIncludeAll [dir1 .. dirN]
 #
 # Description
-#     Find directories with a 'Make/files' containing a 'LIB =' directive
+#     Find directories with 'Make/files' that contain a 'LIB =' directive
 #     and execute 'wmakeLnInclude' for each one
 #
 #------------------------------------------------------------------------------
 Script=${0##*/}
 
-usage() {
+printHelp() {
     while [ "$#" -ge 1 ]; do echo "$1"; shift; done
     cat<<USAGE
 
@@ -47,9 +47,10 @@ Usage: $Script [OPTION] [dir1 .. dirN]
 options:
   -j                Compile using all local cores/hyperthreads
   -jN or -j N       Compile using N cores/hyperthreads
+  -u | -update      Update
   -h | -help        Print the usage
 
-Find directories with a 'Make/files' containing a 'LIB =' directive
+Find directories with 'Make/files' that contain a 'LIB =' directive
 and execute 'wmakeLnInclude -update' for each one
 
 USAGE
@@ -65,28 +66,33 @@ findName=lnInclude
 nCores=0
 
 # Default 'wmakeLnInclude' option
-unset wmLnOpt
+unset optUpdate
 
 while [ "$#" -gt 0 ]
 do
     case "$1" in
         -h | -help*)
-            usage
+            printHelp
             ;;
         -u | -update)
-            wmLnOpt="-update"
+            optUpdate=true
             ;;
         # Parallel execution on WM_NCOMPPROCS cores
         -j)
-            nCores=${WM_NCOMPPROCS:-0}
-            test $# -ge 2 && expr $2 + 1 > /dev/null 2>&1 \
-                && shift && nCores=$1
-
-            [ "$nCores" = 0 ] && nCores=1
+            nCores="${WM_NCOMPPROCS:-0}"
+            case "$2" in
+            [0-9]*)
+                if nCores="$(expr 0 + "$2" 2>/dev/null)"
+                then
+                    shift
+                fi
+                ;;
+            esac
+            [ "${nCores:=0}" -gt 0 ] || nCores=1
             ;;
         # Parallel compilation on specified number of cores
         -j[1-9]*)
-            nCores=${1#-j}
+            nCores="${1#-j}"
             ;;
         -*)
             usage "unknown option: '$1'"
@@ -102,7 +108,7 @@ done
 # project directory: {applications,src} directories
 if [ "$#" -eq 0 ]
 then
-    if wmakeCheckPwd "$WM_PROJECT_DIR" 2>/dev/null
+    if wmake -check-pwd -quiet "$WM_PROJECT_DIR" 2>/dev/null
     then
         set -- applications src
     else
@@ -119,7 +125,7 @@ fi
 
 for checkDir
 do
-    if [ -d $checkDir ]
+    if [ -d "$checkDir" ]
     then
         echo "    searching $checkDir for 'Make' directories"
     else
@@ -127,7 +133,7 @@ do
         continue
     fi
 
-    find $checkDir -depth -name Make -type d -print | while read MakeDir
+    find "$checkDir" -depth -name Make -type d -print | while read MakeDir
     do
         topDir=${MakeDir%/Make}    # trim /Make from the end
         if [ -d "$topDir" ]
@@ -145,9 +151,9 @@ do
                         wait -n
                         joblist=($(jobs -p))
                     done
-                    wmakeLnInclude $wmLnOpt $topDir &
+                    wmakeLnInclude ${optUpdate:+-update} "$topDir" &
                 else
-                    wmakeLnInclude $wmLnOpt $topDir
+                    wmakeLnInclude ${optUpdate:+-update} "$topDir"
                 fi
             elif [ -d "$topDir/lnInclude" ]
             then
