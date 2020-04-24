@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2013-2016 OpenFOAM Foundation
-    Copyright (C) 2015-2018 OpenCFD Ltd.
+    Copyright (C) 2015-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -38,13 +38,7 @@ namespace Foam
 namespace functionObjects
 {
     defineTypeNameAndDebug(turbulenceFields, 0);
-
-    addToRunTimeSelectionTable
-    (
-        functionObject,
-        turbulenceFields,
-        dictionary
-    );
+    addToRunTimeSelectionTable(functionObject, turbulenceFields, dictionary);
 }
 }
 
@@ -88,7 +82,7 @@ Foam::functionObjects::turbulenceFields::incompressibleFieldNames_
 });
 
 
-const Foam::word Foam::functionObjects::turbulenceFields::modelName
+const Foam::word Foam::functionObjects::turbulenceFields::modelName_
 (
     Foam::turbulenceModel::propertiesName
 );
@@ -98,11 +92,11 @@ const Foam::word Foam::functionObjects::turbulenceFields::modelName
 
 bool Foam::functionObjects::turbulenceFields::compressible()
 {
-    if (obr_.foundObject<compressible::turbulenceModel>(modelName))
+    if (obr_.foundObject<compressible::turbulenceModel>(modelName_))
     {
         return true;
     }
-    else if (obr_.foundObject<incompressible::turbulenceModel>(modelName))
+    else if (obr_.foundObject<incompressible::turbulenceModel>(modelName_))
     {
         return false;
     }
@@ -127,14 +121,33 @@ Foam::functionObjects::turbulenceFields::turbulenceFields
     fvMeshFunctionObject(name, runTime, dict),
     fieldSet_()
 {
+    const auto* turbPtr = obr_.findObject<Foam::turbulenceModel>(modelName_);
+
+    if (!turbPtr)
+    {
+        FatalErrorInFunction
+            << "Unable to find a turbulence model."
+            << abort(FatalError);
+    }
+
+    tmp<volScalarField> tepsilon = turbPtr->epsilon();
+    tmp<volScalarField> tomega = turbPtr->omega();
+
+    if (!tepsilon.isTmp())
+    {
+        modelBase_ = modelBase::EPSILON;
+    }
+    else if (!tomega.isTmp())
+    {
+        modelBase_ = modelBase::OMEGA;
+    }
+    else
+    {
+        modelBase_ = modelBase::OTHER;
+    }
+
     read(dict);
 }
-
-
-// * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
-Foam::functionObjects::turbulenceFields::~turbulenceFields()
-{}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
@@ -158,7 +171,7 @@ bool Foam::functionObjects::turbulenceFields::read(const dictionary& dict)
         Info<< "storing fields:" << nl;
         for (const word& f : fieldSet_)
         {
-            Info<< "    " << modelName << ':' << f << nl;
+            Info<< "    " << modelName_ << ':' << f << nl;
         }
         Info<< endl;
     }
@@ -178,7 +191,7 @@ bool Foam::functionObjects::turbulenceFields::execute()
     if (comp)
     {
         const compressible::turbulenceModel& model =
-            obr_.lookupObject<compressible::turbulenceModel>(modelName);
+            obr_.lookupObject<compressible::turbulenceModel>(modelName_);
 
         for (const word& f : fieldSet_)
         {
@@ -196,7 +209,7 @@ bool Foam::functionObjects::turbulenceFields::execute()
                 }
                 case cfOmega:
                 {
-                    processField<scalar>(f, omega(model));
+                    processField<scalar>(f, model.omega());
                     break;
                 }
                 case cfNuTilda:
@@ -234,14 +247,54 @@ bool Foam::functionObjects::turbulenceFields::execute()
                     processField<symmTensor>(f, model.devRhoReff());
                     break;
                 }
+                case cfI:
+                {
+                    processField<scalar>(f, I(model));
+                    break;
+                }
                 case cfL:
                 {
                     processField<scalar>(f, L(model));
                     break;
                 }
-                case cfI:
+                case cfT:
                 {
-                    processField<scalar>(f, I(model));
+                    processField<scalar>(f, T(model));
+                    break;
+                }
+                case cfU:
+                {
+                    processField<scalar>(f, U(model));
+                    break;
+                }
+                case cfLt:
+                {
+                    processField<scalar>(f, Lt(model));
+                    break;
+                }
+                case cfTt:
+                {
+                    processField<scalar>(f, Tt(model));
+                    break;
+                }
+                case cfUt:
+                {
+                    processField<scalar>(f, Ut(model));
+                    break;
+                }
+                case cfLk:
+                {
+                    processField<scalar>(f, Lk(model));
+                    break;
+                }
+                case cfTk:
+                {
+                    processField<scalar>(f, Tk(model));
+                    break;
+                }
+                case cfUk:
+                {
+                    processField<scalar>(f, Uk(model));
                     break;
                 }
                 default:
@@ -255,7 +308,7 @@ bool Foam::functionObjects::turbulenceFields::execute()
     else
     {
         const incompressible::turbulenceModel& model =
-            obr_.lookupObject<incompressible::turbulenceModel>(modelName);
+            obr_.lookupObject<incompressible::turbulenceModel>(modelName_);
 
         for (const word& f : fieldSet_)
         {
@@ -273,7 +326,7 @@ bool Foam::functionObjects::turbulenceFields::execute()
                 }
                 case ifOmega:
                 {
-                    processField<scalar>(f, omega(model));
+                    processField<scalar>(f, model.omega());
                     break;
                 }
                 case ifNuTilda:
@@ -301,14 +354,54 @@ bool Foam::functionObjects::turbulenceFields::execute()
                     processField<symmTensor>(f, model.devReff());
                     break;
                 }
+                case ifI:
+                {
+                    processField<scalar>(f, I(model));
+                    break;
+                }
                 case ifL:
                 {
                     processField<scalar>(f, L(model));
                     break;
                 }
-                case ifI:
+                case ifT:
                 {
-                    processField<scalar>(f, I(model));
+                    processField<scalar>(f, T(model));
+                    break;
+                }
+                case ifU:
+                {
+                    processField<scalar>(f, U(model));
+                    break;
+                }
+                case ifLt:
+                {
+                    processField<scalar>(f, Lt(model));
+                    break;
+                }
+                case ifTt:
+                {
+                    processField<scalar>(f, Tt(model));
+                    break;
+                }
+                case ifUt:
+                {
+                    processField<scalar>(f, Ut(model));
+                    break;
+                }
+                case ifLk:
+                {
+                    processField<scalar>(f, Lk(model));
+                    break;
+                }
+                case ifTk:
+                {
+                    processField<scalar>(f, Tk(model));
+                    break;
+                }
+                case ifUk:
+                {
+                    processField<scalar>(f, Uk(model));
                     break;
                 }
                 default:
@@ -328,7 +421,7 @@ bool Foam::functionObjects::turbulenceFields::write()
 {
     for (const word& f : fieldSet_)
     {
-        const word fieldName = modelName + ':' + f;
+        const word fieldName = modelName_ + ':' + f;
         writeObject(fieldName);
     }
 

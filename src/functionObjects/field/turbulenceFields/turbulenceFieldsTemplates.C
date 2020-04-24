@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2012-2016 OpenFOAM Foundation
-    Copyright (C) 2018 OpenCFD Ltd.
+    Copyright (C) 2018-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -77,33 +77,6 @@ void Foam::functionObjects::turbulenceFields::processField
 
 template<class Model>
 Foam::tmp<Foam::volScalarField>
-Foam::functionObjects::turbulenceFields::omega
-(
-    const Model& model
-) const
-{
-    const scalar Cmu = 0.09;
-
-    // Assume k and epsilon are available
-    const volScalarField k(model.k());
-    const volScalarField epsilon(model.epsilon());
-
-    return tmp<volScalarField>::New
-    (
-        IOobject
-        (
-            "omega.tmp",
-            k.mesh().time().timeName(),
-            k.mesh()
-        ),
-        epsilon/(Cmu*k),
-        epsilon.boundaryField().types()
-    );
-}
-
-
-template<class Model>
-Foam::tmp<Foam::volScalarField>
 Foam::functionObjects::turbulenceFields::nuTilda
 (
     const Model& model
@@ -113,28 +86,6 @@ Foam::functionObjects::turbulenceFields::nuTilda
     (
         "nuTilda.tmp",
         model.k()/omega(model)
-    );
-}
-
-
-template<class Model>
-Foam::tmp<Foam::volScalarField>
-Foam::functionObjects::turbulenceFields::L
-(
-    const Model& model
-) const
-{
-    const scalar Cmu = 0.09;
-
-    // Assume k and epsilon are available
-    const volScalarField k(model.k());
-    const volScalarField epsilon(model.epsilon());
-    const dimensionedScalar eps0("eps0", epsilon.dimensions(), SMALL);
-
-    return tmp<volScalarField>::New
-    (
-        "L.tmp",
-        pow(Cmu, 0.75)*pow(k, 1.5)/(epsilon + eps0)
     );
 }
 
@@ -156,5 +107,98 @@ Foam::functionObjects::turbulenceFields::I
         uPrime/max(max(uPrime, mag(model.U())), U0)
     );
 }
+
+
+template<class Model>
+Foam::tmp<Foam::volScalarField>
+Foam::functionObjects::turbulenceFields::L
+(
+    const Model& model
+) const
+{
+    const dictionary& modelDict = model.coeffDict();
+
+    if (modelBase_ == modelBase::EPSILON)
+    {
+        tmp<volScalarField> tepsilon = model.epsilon();
+        tmp<volScalarField> tk = model.k();
+        const dimensionedScalar Cmu(read("Cmu", modelDict));
+        const dimensionedScalar eps0("e0", sqr(dimLength)/pow3(dimTime), SMALL);
+
+        return tmp<volScalarField>::New
+        (
+            "L.tmp",
+            pow(Cmu, 0.75)*pow(tk, 1.5)/(tepsilon + eps0)
+        );
+    }
+    else if (modelBase_ == modelBase::OMEGA)
+    {
+        tmp<volScalarField> tomega = model.omega();
+        tmp<volScalarField> tk = model.k();
+        const dimensionedScalar Cmu(read("Cmu", modelDict));
+        const dimensionedScalar omg0("o0", dimless/dimTime, SMALL);
+
+        return tmp<volScalarField>::New
+        (
+            "L.tmp",
+            Foam::sqrt(tk)/(pow025(Cmu)*(tomega + omg0))
+        );
+    }
+
+    // pending: what would happen if model=SpalartAllmaras/WrayAgarwal
+}
+
+
+template<class Model>
+Foam::tmp<Foam::volScalarField>
+Foam::functionObjects::turbulenceFields::T
+(
+    const Model& model
+) const
+{
+    const dictionary& modelDict = model.coeffDict();
+
+    if (modelBase_ == modelBase::EPSILON)
+    {
+        tmp<volScalarField> tepsilon = model.epsilon();
+        tmp<volScalarField> tk = model.k();
+        const dimensionedScalar Cmu(read("Cmu", modelDict));
+        const dimensionedScalar eps0("e0", sqr(dimLength)/pow3(dimTime), SMALL);
+
+        return tmp<volScalarField>::New
+        (
+            "T.tmp",
+            Cmu*tk/(tepsilon + eps0)
+        );
+    }
+    else if (modelBase_ == modelBase::OMEGA)
+    {
+        tmp<volScalarField> tomega = model.omega();
+        const dimensionedScalar Cmu(read("Cmu", modelDict));
+        const dimensionedScalar omg0("o0", dimless/dimTime, SMALL);
+
+        return tmp<volScalarField>::New
+        (
+            "T.tmp",
+            Cmu/(tomega + omg0)
+        );
+    }
+}
+
+
+template<class Model>
+Foam::tmp<Foam::volScalarField>
+Foam::functionObjects::turbulenceFields::U
+(
+    const Model& model
+) const
+{
+    return tmp<volScalarField>::New
+    (
+        "U.tmp",
+        Foam::sqrt(model.k())
+    );
+}
+
 
 // ************************************************************************* //
