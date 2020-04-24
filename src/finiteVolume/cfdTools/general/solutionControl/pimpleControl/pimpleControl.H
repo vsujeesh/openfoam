@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2011-2017 OpenFOAM Foundation
-    Copyright (C) 2017 OpenCFD Ltd.
+    Copyright (C) 2017-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -90,6 +90,9 @@ protected:
 
             //- Flag to indicate whether to only solve turbulence on final iter
             bool turbOnFinalIterOnly_;
+
+            //- Flag to indicate that ddtCorr should be applied; default = yes
+            bool ddtCorr_;
 
             //- Converged flag
             bool converged_;
@@ -177,6 +180,9 @@ public:
 
             //- Return true to solve for turbulence
             inline bool turbCorr();
+
+            //- Return true to apply ddtCorr
+            inline bool ddtCorr() const;
 };
 
 

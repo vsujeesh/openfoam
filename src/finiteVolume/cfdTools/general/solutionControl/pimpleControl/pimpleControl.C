@@ -50,6 +50,7 @@ bool Foam::pimpleControl::read()
     SIMPLErho_ = pimpleDict.lookupOrDefault("SIMPLErho", false);
     turbOnFinalIterOnly_ =
         pimpleDict.lookupOrDefault("turbOnFinalIterOnly", true);
+    ddtCorr_ = pimpleDict.lookupOrDefault("ddtCorr", true);
 
     return true;
 }
@@ -153,6 +154,7 @@ Foam::pimpleControl::pimpleControl
     corrPISO_(0),
     SIMPLErho_(false),
     turbOnFinalIterOnly_(true),
+    ddtCorr_(true),
     converged_(false)
 {
     read();
