@@ -22,15 +22,12 @@ solvers
         solver           GAMG;
         tolerance        1e-8;
         relTol           0.01;
-
         smoother         GaussSeidel;
-
         cacheAgglomeration true;
         nCellsInCoarsestLevel 10;
         agglomerator     faceAreaPair;
         mergeLevels      1;
     }
-
 
     "(U|h|k|epsilon)"
     {
@@ -60,5 +57,6 @@ relaxationFactors
         h               0.3;
     }
 }
+
 
 // ************************************************************************* //

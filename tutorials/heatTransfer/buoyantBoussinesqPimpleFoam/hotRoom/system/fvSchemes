@@ -28,7 +28,6 @@ gradSchemes
 divSchemes
 {
     default         none;
-
     div(phi,U)      Gauss upwind;
     div(phi,T)      Gauss upwind;
     div(phi,k)      Gauss upwind;

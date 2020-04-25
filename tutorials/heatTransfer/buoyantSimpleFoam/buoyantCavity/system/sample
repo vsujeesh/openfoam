@@ -13,15 +13,14 @@ FoamFile
     location        "system";
     object          sample;
 }
-
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-type sets;
+type            sets;
 libs            (sampling);
 
 interpolationScheme cellPointFace;
 
-setFormat raw;
+setFormat       raw;
 
 sets
 (

@@ -44,7 +44,6 @@ solvers
         $T;
         relTol          0;
     }
-
 }
 
 PIMPLE
