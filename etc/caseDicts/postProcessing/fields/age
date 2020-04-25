@@ -1,0 +1,18 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Version:  v1912
+    \\  /    A nd           | Website:  www.openfoam.com
+     \\/     M anipulation  |
+-------------------------------------------------------------------------------
+Description
+    Solves a transport equation to determine the time taken for a particle to
+    convect from an inlet to an input location in the flow.
+\*---------------------------------------------------------------------------*/
+
+type            age;
+libs            (fieldFunctionObjects);
+
+nCorr           10;
+
+// ************************************************************************* //

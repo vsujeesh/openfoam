@@ -1,9 +1,8 @@
 AMIWeights/AMIWeights.C
-
+age/age.C
 columnAverage/columnAverage.C
-
+comfort/comfort.C
 continuityError/continuityError.C
-
 derivedFields/derivedFields.C
 
 fieldAverage/fieldAverage.C
@@ -79,6 +78,10 @@ pressure/pressure.C
 MachNo/MachNo.C
 Curle/Curle.C
 reference/reference.C
+log/log.C
+scale/scale.C
+shearStress/shearStress.C
+totalEnthalpy/totalEnthalpy.C
 
 fieldsExpression/fieldsExpression.C
 add/add.C
