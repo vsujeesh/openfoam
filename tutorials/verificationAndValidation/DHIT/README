@@ -1,0 +1,37 @@
+#------------------------------------------------------------------------------
+                            PENDING
+Overview
+
+    Aim: Verification of synthetic inflow turbulence boundary conditions.
+
+        - turbulentDigitalFilter variant=digitalFilter
+        - turbulentDigitalFilter variant=reducedDigitalFilter
+        - turbulentDFSEM
+
+    Resources:
+
+        Comte-Bellot, G., & Corrsin, S. (1971).
+        Simple Eulerian time correlation of full-and
+        narrow-band velocity signals in grid-generated,
+        'isotropic' turbulence.
+        Journal of Fluid Mechanics, 48(2), 273-337.
+        DOI:10.1017/S0022112071001599
+
+        AGARD (1998).
+        A selection of test cases for the validation of
+        large-eddy simulations of turbulent flows.
+        Technical Report AGARD-AR-345, North Atlantic Treaty Organization.
+
+    Physical phenomena:
+
+    Physical domain:
+
+    Test scenario:
+
+    Computational domain modelling:
+
+    Computational domain discretisation:
+
+    Settings of solution algorithms, solvers, input:
+
+#------------------------------------------------------------------------------

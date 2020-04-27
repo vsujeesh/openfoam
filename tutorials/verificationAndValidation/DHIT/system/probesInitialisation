@@ -1,0 +1,22 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v1912                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+
+#includeEtc "caseDicts/postProcessing/probes/probes.cfg"
+
+fields (p U);
+
+probeLocations
+(
+    // Initialization
+    (1.4224 7.62e-2 0)
+    (2.8448 7.62e-2 0)
+    (6.5532 7.62e-2 0)
+);
+
+
+// ************************************************************************* //

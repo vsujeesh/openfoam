@@ -1,0 +1,101 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v1912                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+scale                   1;
+
+// global dimensions of the computational domain [M]
+x_length                150.0;
+y_length                3.0;
+z_length                3.0;
+z_pos                   #calc "$z_length/2.0";
+z_neg                   #calc "-1.0*$z_pos";
+
+// grid number per M - for DHIT, only cuboid hexahedral cells used
+nodesperM               13;
+x_node                  #calc "$nodesperM*$x_length";
+y_node                  #calc "$nodesperM*$y_length";
+z_node                  #calc "$nodesperM*$z_length";
+
+vertices
+(
+    (0         0         $z_neg) // 0
+    ($x_length 0         $z_neg) // 1
+    ($x_length $y_length $z_neg) // 2
+    (0         $y_length $z_neg) // 3
+
+    (0         0         $z_pos) // 4
+    ($x_length 0         $z_pos) // 5
+    ($x_length $y_length $z_pos) // 6
+    (0         $y_length $z_pos) // 7
+);
+
+blocks
+(
+    hex (0 1 2 3 4 5 6 7) ($x_node $y_node $z_node) simpleGrading (1 1 1)
+);
+
+boundary
+(
+    inlet
+    {
+        type patch;
+        faces
+        (
+            (0 4 7 3)
+        );
+    }
+    outlet
+    {
+        type patch;
+        faces
+        (
+            (1 2 6 5)
+        );
+    }
+    left
+    {
+        type            cyclic;
+        neighbourPatch  right;
+        faces           ((0 3 2 1));
+    }
+    right
+    {
+        type            cyclic;
+        neighbourPatch  left;
+        faces           ((7 6 5 4));
+    }
+    top
+    {
+        type            cyclic;
+        neighbourPatch  bottom;
+        faces           ((7 6 2 3));
+    }
+    bottom
+    {
+        type            cyclic;
+        neighbourPatch  top;
+        faces           ((0 1 5 4));
+    }
+);
+
+edges
+();
+
+mergePatchPairs
+();
+
+
+// ************************************************************************* //
