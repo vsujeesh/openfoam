@@ -1,0 +1,80 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v1912                                 |
+|   \\  /    A nd           | Web:      www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     pisoFoam;
+
+startFrom       latestTime;
+
+startTime       0;
+
+stopAt          endTime;
+
+endTime         2e-3;
+
+deltaT          2e-4;
+
+writeControl    timeStep;
+
+writeInterval   1;
+
+purgeWrite      3;
+
+writeFormat     ascii;
+
+writePrecision  16;
+
+writeCompression off;
+
+timeFormat      general;
+
+timePrecision   6; //depends on time-step
+
+runTimeModifiable false;
+
+functions
+{
+    #includeFunc  probesInitialisation
+    #includeFunc  probesAveraging
+
+    fieldAverage1
+    {
+        type            fieldAverage;
+        functionObjectLibs (fieldFunctionObjects);
+        enabled         true;
+        writeControl    writeTime;
+        fields
+        (
+            U
+            {
+                mean        on;
+                prime2Mean  on;
+                base        time;
+            }
+
+            p
+            {
+                mean        on;
+                prime2Mean  on;
+                base        time;
+            }
+
+        );
+    }
+}
+
+
+// ************************************************************************* //

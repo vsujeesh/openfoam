@@ -1,0 +1,36 @@
+#------------------------------------------------------------------------------
+                            PENDING
+Overview
+
+    Aim: Verification of synthetic inflow turbulence boundary conditions.
+
+        - turbulentDigitalFilter variant=digitalFilter
+        - turbulentDigitalFilter variant=reducedDigitalFilter
+        - turbulentDFSEM
+
+    Resources:
+
+        Tavoularis, S., & Corrsin, S. (1981).
+        Experiments in nearly homogenous turbulent shear
+        flow with a uniform mean temperature gradient. Part 1.
+        Journal of Fluid Mechanics, 104, 311-347.
+        DOI:10.1017/S0022112081002930
+
+        AGARD (1998).
+        A selection of test cases for the validation of
+        large-eddy simulations of turbulent flows.
+        Technical Report AGARD-AR-345, North Atlantic Treaty Organization.
+
+    Physical phenomena:
+
+    Physical domain:
+
+    Test scenario:
+
+    Computational domain modelling:
+
+    Computational domain discretisation:
+
+    Settings of solution algorithms, solvers, input:
+
+#------------------------------------------------------------------------------
