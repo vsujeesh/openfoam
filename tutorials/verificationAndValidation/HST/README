@@ -1,0 +1,130 @@
+#------------------------------------------------------------------------------
+
+Overview
+
+    Homogenous shear turbulence (HST) can be considered as a transition step
+    wherein large-scale anisotropy is partially incorporated into decaying
+    homogenous isotropic turbulence; nonetheless, the statistical uniformity
+    in space and homogeneity in spanwise direction reduces the sophistication
+    of the flow. By means of HST, isolated effects of a single one-spatial-point
+    anisotropic stress and cross-integral length scale can be sought.
+
+    Aim:
+
+        Verification of the synthetic inflow turbulence boundary conditions in
+        flows where isolated effects of a single one-spatial-point anisotropic
+        stress and cross-integral length scale can be sought:
+
+        - turbulentDigitalFilterInlet fsm=true
+        - turbulentDigitalFilterInlet fsm=false
+        - turbulentDFSEMInlet
+
+    Benchmark (Physical phenomenon):
+
+        The HST benchmark is an experiment of virtually transverse-homogenous
+        uniform-shear turbulent flow from (Tavoularis and Corrsin, 1981).
+
+    Benchmark scenario:
+
+        Synthetic time-series were based upon the experimental measurements
+        at x1/h=7.5 plane measurements, where h = 0.305[m] is the height of
+        shear turbulence generator, and x1 the downstream distance to the
+        generator.
+
+    Resources:
+
+        Experimental study (tag:TC):
+            Tavoularis, S., & Corrsin, S. (1981).
+            Experiments in nearly homogenous turbulent shear
+            flow with a uniform mean temperature gradient. Part 1.
+            Journal of Fluid Mechanics, 104, 311-347.
+            DOI:10.1017/S0022112081002930
+
+        Study report (tag:A):
+            AGARD (1998).
+            A selection of test cases for the validation of
+            large-eddy simulations of turbulent flows.
+            Technical Report AGARD-AR-345, North Atlantic Treaty Organization.
+
+    Physical domain:
+
+        Please refer to (A:p. 87).
+
+    Physical modelling:
+
+        - The governing equations for:
+            - Time-variant, Newtonian, single-phase, incompressible fluid flows,
+            excluding any thermal chemical, electromagnetic and scalar
+            interactions
+        - Mathematical approach for the turbulence modelling:
+            - Implicitly-filtered large eddy simulation (IFLES;
+            not implicit LES)
+        - Turbulence closure model:
+            - Smagorinsky model with van Driest wall-damping function
+        - The sets of input (TC:p. 320, 329, 334):
+            - Mean longitudinal centreline flow speed, Uc = 12.4[m/s]
+            - Fluid kinematic viscosity, nuLam = 1.49778636445e-5[m2/s]
+            - One-point correlations:
+                - UPrime2Mean_11 = 2.80e-1[m2/s2]
+                - UPrime2Mean_22 = 1.00e-1[m2/s2]
+                - UPrime2Mean_33 = 1.56e-1[m2/s2]
+                - UPrime2Mean_12 = -4.50e-1[m2/s2]
+                - Rest of UPrime2Mean_ij = 0.0[m2/s2]
+            - Integral length scales (For Lij,k - ij signifies the directions
+              of two velocity components in hand, and k measurement direction):
+                - L11,1 = 4.4e-2[m]
+                - L22,1 = 1.012e-2[m]
+                - L33,1 = 1.496e-2[m]
+                - L11,2 = 1.452e-2[m]
+                - L11,3 = 1.1e-2[m]
+                - L22,2 = L22,3 = 5.06e-3[m]
+                - L33,2 = L33,3 = 7.48e-3[m]
+                - The last four scales were derived by the isotropy assumption,
+                e.g. 0.5*L22,1 = L22,2.
+
+    Computational domain modelling:
+
+        - Rectangular prism
+        - (x1, x2, x3)
+            = (5.6425, 3.05e-1, 3.05e-1)[m]
+            = (128, 6.9, 6.9)[L11,1]
+            = (389, 21, 21)[L11,2]
+            = (streamwise, spanwise, ground-normal) directions
+
+    Computational domain discretisation:
+
+        - Spatial resolution:
+            - (x1, x2, x3) = (1332, 72, 72)[cells]
+            - 10.4 cells per L11,1
+            - Cubic cells
+        - Temporal resolution:
+            - Time-step size = 1e-4[s]
+
+     Equation discretisation:
+
+        - Spatial derivatives and variables:
+            - Convection: Second order
+            - Others: Second order
+        - Temporal derivatives and variables: Second order
+
+    Numerical boundary/initial conditions:
+
+        - Refer to `0.orig`
+
+    Pressure-velocity coupling algorithm:
+
+        - PISO
+
+    Linear solvers:
+
+        - Refer to `system/fvSolution`
+
+    Initialisation and sampling:
+
+        - Initialisation: 18.2[s] = 17 bottom-mean-flow pass-through
+        - Averaging: 36.4[s] = 34 bottom-mean-flow pass-through
+        - Sampling at the end of the simulation via `system/sampleDict`
+        - Refer to `system/controlDict` for further details
+
+
+#------------------------------------------------------------------------------

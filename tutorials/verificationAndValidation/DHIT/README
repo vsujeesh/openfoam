@@ -1,0 +1,114 @@
+#------------------------------------------------------------------------------
+
+Overview
+
+    Decaying homogeneous isotropic turbulence (DHIT) can be considered as the
+    initial step in any turbulence model benchmark whilst, in particular, any
+    cross-correlation in its statistics is ideally zero.
+
+    Aim:
+
+        Verification of the synthetic inflow turbulence boundary conditions in
+        flows where no cross-correlation interactions exist:
+
+        - turbulentDigitalFilterInlet fsm=true
+        - turbulentDigitalFilterInlet fsm=false
+        - turbulentDFSEMInlet
+
+    Benchmark (Physical phenomenon):
+
+        The DHIT benchmark is a stationary-grid approximately-isotropic decaying
+        turbulent flow experiment from (Comte-Bellot and Corrsin, 1971).
+
+    Benchmark scenario:
+
+        Synthetic time-series were based upon the experimental measurements
+        at 42M section, where M = 0.0508[m] is the mesh-grid and the
+        characteristic size.
+
+    Resources:
+
+        Experimental study (tag:CC):
+            Comte-Bellot, G., & Corrsin, S. (1971).
+            Simple Eulerian time correlation of full-and
+            narrow-band velocity signals in grid-generated,
+            'isotropic' turbulence.
+            Journal of Fluid Mechanics, 48(2), 273-337.
+            DOI:10.1017/S0022112071001599
+
+        Study report (tag:A):
+            AGARD (1998).
+            A selection of test cases for the validation of
+            large-eddy simulations of turbulent flows.
+            Technical Report AGARD-AR-345, North Atlantic Treaty Organization.
+
+    Physical domain:
+
+        Please refer to (A:p. 59) and (CC:p. 280).
+
+    Physical modelling:
+
+        - The governing equations for:
+            - Time-variant, Newtonian, single-phase, incompressible fluid flows,
+            excluding any thermal chemical, electromagnetic and scalar
+            interactions
+        - Mathematical approach for the turbulence modelling:
+            - Implicitly-filtered large eddy simulation (IFLES;
+            not implicit LES)
+        - Turbulence closure model:
+            - Smagorinsky model with van Driest wall-damping function
+        - The sets of input (CC:p. 299):
+            - Mean longitudinal flow speed, Uc = 12.7[m/s]
+            - Fluid kinematic viscosity, nuLam = 1.4941e-5[m2/s]
+            (based on Re_M = 3.4e4 [-], and Uo = 10[m/s])
+            - One-point normal correlations, UPrime2Mean_ii = 4.9284e-2[m2/s2]
+            - One-point anisotropic correlations, UPrime2Mean_ij = 0.0[m2/s2]
+            - Longitudinal integral length scale, Llong = 2.4e-2[m]
+            - Transverse integral length scale, Ltrans = 1.27e-2[m]
+
+    Computational domain modelling:
+
+        - Rectangular prism
+        - (x1, x2, x3)
+            = (7.62, 1.524e-1, 1.524e-1)[m]
+            = (300, 6, 6)[Llong]
+            = (600, 12, 12)[Ltrans]
+            = (streamwise, spanwise, ground-normal) directions
+
+    Computational domain discretisation:
+
+        - Spatial resolution:
+            - (x1, x2, x3) = (3000, 60, 60)[cells]
+            - 10 cells per Llong
+            - Cubic cells
+        - Temporal resolution:
+            - Time-step size = 5e-5[s]
+
+    Equation discretisation:
+
+        - Spatial derivatives and variables:
+            - Convection: Second order
+            - Others: Second order
+        - Temporal derivatives and variables: Second order
+
+    Numerical boundary/initial conditions:
+
+        - Refer to `0.orig`
+
+    Pressure-velocity coupling algorithm:
+
+        - PISO
+
+    Linear solvers:
+
+        - Refer to `system/fvSolution`
+
+    Initialisation and sampling:
+
+        - Initialisation: 24[s] = 20 pass-through
+        - Averaging: 24[s] = 20 pass-through
+        - Sampling at the end of the simulation via `system/sampleDict`
+        - Refer to `system/controlDict` for further details
+
+
+#------------------------------------------------------------------------------

@@ -5,8 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2015 OpenFOAM Foundation
-    Copyright (C) 2016 OpenCFD Ltd.
+    Copyright (C) 2019-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -99,7 +98,7 @@ Foam::turbulentDigitalFilterInletFvPatchVectorField::interpolateBoundaryData
 
     Field<Type> vals(isPtr());
 
-    Info<< "Turbulent DFM/FSM patch " << patchName
+    Info<< "turbulentDigitalFilterInlet patch " << patchName
         << ": Interpolating field " << fieldName
         << " from " << valsFile << endl;
 
@@ -108,7 +107,7 @@ Foam::turbulentDigitalFilterInletFvPatchVectorField::interpolateBoundaryData
 
 
 template<class Form, class Type>
-Form Foam::turbulentDigitalFilterInletFvPatchVectorField::generateRandomSet
+Form Foam::turbulentDigitalFilterInletFvPatchVectorField::randomSet
 (
     const label len
 )
@@ -124,5 +123,6 @@ Form Foam::turbulentDigitalFilterInletFvPatchVectorField::generateRandomSet
 
     return randomSet;
 }
+
 
 // ************************************************************************* //

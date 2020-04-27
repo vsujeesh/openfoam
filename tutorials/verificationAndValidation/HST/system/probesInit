@@ -1,0 +1,31 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v1912                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*
+
+probesInit
+{
+    type            probes;
+    libs            (sampling);
+    timeStart       $/timeStart;
+    writeControl    writeTime;
+    fixedLocations  true;
+    interpolationScheme cellPoint;
+
+    fields ( p U );
+
+    probeLocations
+    (
+        // Initialization
+        (6.1e-1 1.525e-1 0)
+        (1.0675 1.525e-1 0)
+        (2.135 1.525e-1 0)
+        (2.5925 1.525e-1 0)
+    );
+}
+
+
+// ************************************************************************* //
