@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2016-2017 OpenFOAM Foundation
+    Copyright (C) 2016-2020 OpenFOAM Foundation
     Copyright (C) 2016-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
@@ -72,15 +72,13 @@ void Foam::functionObjects::wallHeatFlux::calcHeatFlux
     volScalarField::Boundary& wallHeatFluxBf = wallHeatFlux.boundaryFieldRef();
 
     const volScalarField::Boundary& heBf = he.boundaryField();
-
     const volScalarField::Boundary& alphaBf = alpha.boundaryField();
 
-    forAll(wallHeatFluxBf, patchi)
+    forAllConstIter(labelHashSet, patchSet_, iter)
     {
-        if (!wallHeatFluxBf[patchi].coupled())
-        {
-            wallHeatFluxBf[patchi] = alphaBf[patchi]*heBf[patchi].snGrad();
-        }
+        const label patchi = iter.key();
+
+        wallHeatFluxBf[patchi] = alphaBf[patchi]*heBf[patchi].snGrad();
     }
 
     if (foundObject<volScalarField>(qrName_))
@@ -89,12 +87,11 @@ void Foam::functionObjects::wallHeatFlux::calcHeatFlux
 
         const volScalarField::Boundary& radHeatFluxBf = qr.boundaryField();
 
-        forAll(wallHeatFluxBf, patchi)
+        forAllConstIter(labelHashSet, patchSet_, iter)
         {
-            if (!wallHeatFluxBf[patchi].coupled())
-            {
-                wallHeatFluxBf[patchi] -= radHeatFluxBf[patchi];
-            }
+            const label patchi = iter.key();
+
+            wallHeatFluxBf[patchi] -= radHeatFluxBf[patchi];
         }
     }
 }

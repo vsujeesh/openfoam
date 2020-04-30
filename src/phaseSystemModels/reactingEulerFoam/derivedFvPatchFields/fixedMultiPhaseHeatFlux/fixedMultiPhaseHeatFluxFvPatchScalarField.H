@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2015-2018 OpenFOAM Foundation
+    Copyright (C) 2015-2020 OpenFOAM Foundation
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -61,7 +61,7 @@ class fixedMultiPhaseHeatFluxFvPatchScalarField
 :
     public fixedValueFvPatchScalarField
 {
-    // Private data
+    // Private Data
 
         //- Heat power [W] or flux [W/m2]
         scalarField q_;
@@ -113,6 +113,15 @@ public:
             const fixedMultiPhaseHeatFluxFvPatchScalarField&
         );
 
+        //- Construct and return a clone
+        virtual tmp<fvPatchScalarField> clone() const
+        {
+            return tmp<fvPatchScalarField>
+            (
+                new fixedMultiPhaseHeatFluxFvPatchScalarField(*this)
+            );
+        }
+
         //- Construct as copy setting internal field reference
         fixedMultiPhaseHeatFluxFvPatchScalarField
         (
@@ -120,8 +129,30 @@ public:
             const DimensionedField<scalar, volMesh>&
         );
 
+        //- Construct and return a clone setting internal field reference
+        virtual tmp<fvPatchScalarField> clone
+        (
+            const DimensionedField<scalar, volMesh>& iF
+        ) const
+        {
+            return tmp<fvPatchScalarField>
+            (
+                new fixedMultiPhaseHeatFluxFvPatchScalarField(*this, iF)
+            );
+        }
 
-    // Member functions
+
+    // Member Functions
+
+        // Mapping functions
+
+            //- Map (and resize as needed) from self given a mapping object
+            //  Used to update fields following mesh topology change
+            virtual void autoMap(const fvPatchFieldMapper&);
+
+            //- Reverse map the given fvPatchField onto this fvPatchField
+            //  Used to reconstruct fields
+            virtual void rmap(const fvPatchScalarField&, const labelList&);
 
         // Evaluation functions
 

@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2011-2016 OpenFOAM Foundation
+    Copyright (C) 2011-2020 OpenFOAM Foundation
     Copyright (C) 2015-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
@@ -836,7 +836,7 @@ int main(int argc, char *argv[])
 
     if (mergeDim > 0)
     {
-        Info<< "Collapsing edges < " << mergeDim << " ..." << nl << endl;
+        Pout<< "Collapsing edges < " << mergeDim << " ..." << nl << endl;
 
         // Edge collapsing engine
         edgeCollapser collapser(mesh);
@@ -855,7 +855,7 @@ int main(int argc, char *argv[])
 
             if (d < mergeDim)
             {
-                Info<< "Merging edge " << e << " since length " << d
+                Pout<< "Merging edge " << e << " since length " << d
                     << " << " << mergeDim << nl;
 
                 collapseEdge.set(edgeI);
@@ -881,6 +881,7 @@ int main(int argc, char *argv[])
 
         // Put all modifications into meshMod
         bool anyChange = collapser.setRefinement(allPointInfo, meshMod);
+        reduce(anyChange, orOp<bool>());
 
         if (anyChange)
         {

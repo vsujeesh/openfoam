@@ -5,7 +5,7 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2015-2018 OpenFOAM Foundation
+    Copyright (C) 2015-2020 OpenFOAM Foundation
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -101,6 +101,15 @@ public:
             const copiedFixedValueFvPatchScalarField&
         );
 
+        //- Construct and return a clone
+        virtual tmp<fvPatchScalarField> clone() const
+        {
+            return tmp<fvPatchScalarField>
+            (
+                new copiedFixedValueFvPatchScalarField(*this)
+            );
+        }
+
         //- Construct as copy setting internal field reference
         copiedFixedValueFvPatchScalarField
         (
@@ -108,8 +117,20 @@ public:
             const DimensionedField<scalar, volMesh>&
         );
 
+        //- Construct and return a clone setting internal field reference
+        virtual tmp<fvPatchScalarField> clone
+        (
+            const DimensionedField<scalar, volMesh>& iF
+        ) const
+        {
+            return tmp<fvPatchScalarField>
+            (
+                new copiedFixedValueFvPatchScalarField(*this, iF)
+            );
+        }
 
-    // Member functions
+
+    // Member Functions
 
         // Evaluation functions
 
